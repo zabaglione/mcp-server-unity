@@ -27,3 +27,8 @@ logs/
 # OS files
 Thumbs.db
 Desktop.ini
+
+# fot AI
+CLAUDE.md
+.claude/
+.github/
