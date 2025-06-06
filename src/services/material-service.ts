@@ -4,6 +4,7 @@ import { BaseService } from './base-service.js';
 import path from 'path';
 import fs from 'fs/promises';
 import yaml from 'js-yaml';
+import { UnityMetaGenerator } from '../utils/unity-meta-generator.js';
 
 interface MaterialData {
   Material: {
@@ -35,6 +36,7 @@ interface MaterialData {
 }
 
 export class MaterialService extends BaseService {
+  private shaderService: any; // Will be injected later to avoid circular dependency
   // Common shader GUIDs
   private shaderGUIDs: Record<string, string> = {
     'Standard': '46933b9ed1c74c0c9a6a3e1d99f93274',
@@ -50,6 +52,13 @@ export class MaterialService extends BaseService {
 
   constructor(logger: Logger) {
     super(logger);
+  }
+
+  /**
+   * Set shader service for GUID lookups
+   */
+  setShaderService(shaderService: any): void {
+    this.shaderService = shaderService;
   }
 
   /**
@@ -142,8 +151,23 @@ export class MaterialService extends BaseService {
     const processedContent = this.preprocessUnityYAML(content);
     const materialData = yaml.load(processedContent) as MaterialData;
 
-    // Get shader GUID (use a placeholder if not in our list)
-    const shaderGUID = this.shaderGUIDs[shaderName] || this.generateShaderGUID(shaderName);
+    // Get shader GUID
+    let shaderGUID = this.shaderGUIDs[shaderName];
+    
+    // If not a known shader, try to find it in the project
+    if (!shaderGUID && this.shaderService) {
+      const customGUID = await this.shaderService.getShaderGUID(shaderName);
+      if (customGUID) {
+        shaderGUID = customGUID;
+        this.logger.info(`Found custom shader GUID for ${shaderName}: ${shaderGUID}`);
+      } else {
+        // Generate a deterministic GUID as fallback
+        shaderGUID = this.generateShaderGUID(shaderName);
+        this.logger.info(`Could not find shader ${shaderName}, using generated GUID: ${shaderGUID}`);
+      }
+    } else if (!shaderGUID) {
+      shaderGUID = this.generateShaderGUID(shaderName);
+    }
 
     // Update shader reference
     materialData.Material.m_Shader = {
@@ -341,6 +365,119 @@ export class MaterialService extends BaseService {
               `Colors:\n${Object.entries(colors).map(([k, v]) => `  ${k}: [${v.join(', ')}]`).join('\n')}\n\n` +
               `Floats:\n${Object.entries(floats).map(([k, v]) => `  ${k}: ${v}`).join('\n')}\n\n` +
               `Textures:\n${Object.entries(textures).map(([k, v]) => `  ${k}: ${v}`).join('\n')}`
+      }]
+    };
+  }
+
+  /**
+   * Create a new material with a specified shader
+   */
+  async createMaterialWithShader(
+    materialName: string,
+    shaderName: string
+  ): Promise<CallToolResult> {
+    this.ensureProjectSet();
+
+    const materialsPath = path.join(this.unityProject!.assetsPath, 'Materials');
+    await this.ensureDirectory(materialsPath);
+
+    // Ensure .mat extension
+    if (!materialName.endsWith('.mat')) {
+      materialName += '.mat';
+    }
+
+    const materialPath = path.join(materialsPath, materialName);
+
+    // Get shader GUID
+    let shaderGUID = this.shaderGUIDs[shaderName];
+    
+    if (!shaderGUID && this.shaderService) {
+      this.logger.info(`Looking up custom shader: ${shaderName}`);
+      const customGUID = await this.shaderService.getShaderGUID(shaderName);
+      if (customGUID) {
+        shaderGUID = customGUID;
+        this.logger.info(`Found custom shader GUID for ${shaderName}: ${shaderGUID}`);
+      } else {
+        // Try with Custom/ prefix if not already present
+        if (!shaderName.startsWith('Custom/')) {
+          const customPrefixName = `Custom/${shaderName}`;
+          this.logger.info(`Trying with Custom/ prefix: ${customPrefixName}`);
+          const guidWithPrefix = await this.shaderService.getShaderGUID(customPrefixName);
+          if (guidWithPrefix) {
+            shaderGUID = guidWithPrefix;
+            this.logger.info(`Found custom shader GUID with prefix for ${customPrefixName}: ${shaderGUID}`);
+          }
+        }
+        
+        if (!shaderGUID) {
+          // Generate a deterministic GUID as fallback
+          shaderGUID = this.generateShaderGUID(shaderName);
+          this.logger.info(`Could not find shader ${shaderName}, using generated GUID: ${shaderGUID}`);
+        }
+      }
+    } else if (!shaderGUID) {
+      shaderGUID = this.generateShaderGUID(shaderName);
+      this.logger.info(`No shader service available, using generated GUID: ${shaderGUID}`);
+    } else {
+      this.logger.info(`Using known shader GUID for ${shaderName}: ${shaderGUID}`);
+    }
+
+    // Create material content
+    const materialData = {
+      Material: {
+        serializedVersion: 6,
+        m_ObjectHideFlags: 0,
+        m_CorrespondingSourceObject: { fileID: 0 },
+        m_PrefabInstance: { fileID: 0 },
+        m_PrefabAsset: { fileID: 0 },
+        m_Name: materialName.replace('.mat', ''),
+        m_Shader: {
+          fileID: 4800000,
+          guid: shaderGUID,
+          type: 3
+        },
+        m_ShaderKeywords: '',
+        m_LightmapFlags: 4,
+        m_EnableInstancingVariants: 0,
+        m_DoubleSidedGI: 0,
+        m_CustomRenderQueue: -1,
+        stringTagMap: {},
+        disabledShaderPasses: [],
+        m_SavedProperties: {
+          serializedVersion: 3,
+          m_TexEnvs: [],
+          m_Floats: [],
+          m_Colors: []
+        }
+      }
+    };
+
+    // Write material file
+    const materialContent = yaml.dump(materialData, {
+      lineWidth: -1,
+      noRefs: true,
+      flowLevel: 3,
+      styles: {
+        '!!int': 'decimal',
+        '!!float': 'decimal'
+      }
+    });
+
+    const finalContent = '%YAML 1.1\n%TAG !u! tag:unity3d.com,2011:\n--- !u!21 &2100000\n' + materialContent;
+    await fs.writeFile(materialPath, finalContent, 'utf-8');
+
+    // Create meta file
+    await UnityMetaGenerator.createMaterialMetaFile(materialPath);
+
+    this.logger.info(`Material created: ${materialPath} with shader ${shaderName}`);
+
+    return {
+      content: [{
+        type: 'text',
+        text: `Material created: ${materialName}\n` +
+              `Shader: ${shaderName}\n` +
+              `Path: ${path.relative(this.unityProject!.projectPath, materialPath)}\n\n` +
+              `The material has been created with the specified shader.`
       }]
     };
   }
@@ -552,6 +689,14 @@ export class MaterialService extends BaseService {
       return true;
     } catch {
       return false;
+    }
+  }
+
+  private async ensureDirectory(dirPath: string): Promise<void> {
+    try {
+      await fs.mkdir(dirPath, { recursive: true });
+    } catch (error) {
+      // Directory might already exist
     }
   }
 }

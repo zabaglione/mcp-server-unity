@@ -45,6 +45,9 @@ export class ServiceFactory {
     const codeAnalysisService = new CodeAnalysisService(logger);
     const compilationService = new CompilationService(logger);
 
+    // Set shader service reference in material service
+    materialService.setShaderService(shaderService);
+
     return {
       projectService,
       scriptService,
@@ -83,6 +86,9 @@ export class ServiceFactory {
         services.materialService.setUnityProject(project);
         services.codeAnalysisService.setUnityProject(project);
         services.compilationService.setUnityProject(project);
+        
+        // Re-set shader service reference after project update
+        services.materialService.setShaderService(services.shaderService);
       }
       
       return result;

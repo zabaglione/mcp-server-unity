@@ -7,6 +7,7 @@ import { UnityProjectValidator } from '../validators/unity-project-validator.js'
 import { findFiles, ensureDirectory } from '../utils/file-utils.js';
 import { getSceneTemplate } from '../templates/scene-template.js';
 import { getMaterialTemplate } from '../templates/material-template.js';
+import { UnityMetaGenerator } from '../utils/unity-meta-generator.js';
 
 export class AssetService extends BaseService {
   private validator: UnityProjectValidator;
@@ -35,6 +36,9 @@ export class AssetService extends BaseService {
     const sceneTemplate = getSceneTemplate();
 
     await fs.writeFile(scenePath, sceneTemplate, 'utf-8');
+    
+    // Create meta file
+    await UnityMetaGenerator.createSceneMetaFile(scenePath);
 
     this.logger.info(`Scene created: ${scenePath}`);
 
@@ -62,6 +66,9 @@ export class AssetService extends BaseService {
     const materialTemplate = getMaterialTemplate(materialName, renderPipeline);
 
     await fs.writeFile(materialPath, materialTemplate, 'utf-8');
+    
+    // Create meta file
+    await UnityMetaGenerator.createMaterialMetaFile(materialPath);
 
     this.logger.info(`Material created: ${materialPath} for ${renderPipeline}`);
 

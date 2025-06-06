@@ -11,11 +11,13 @@ import { getHDRPShaderTemplate } from '../templates/shader-hdrp-template.js';
 import { getURPShaderGraphTemplate } from '../templates/shadergraph-urp-template.js';
 import { getHDRPShaderGraphTemplate } from '../templates/shadergraph-hdrp-template.js';
 import { CONFIG } from '../config/index.js';
+import { UnityMetaGenerator } from '../utils/unity-meta-generator.js';
 
 export type ShaderType = 'builtin' | 'urp' | 'hdrp' | 'urpGraph' | 'hdrpGraph';
 
 export class ShaderService extends BaseService {
   private validator: UnityProjectValidator;
+  private recentlyCreatedShaders: Map<string, string> = new Map(); // shaderName -> GUID
 
   constructor(logger: Logger) {
     super(logger);
@@ -50,9 +52,29 @@ export class ShaderService extends BaseService {
     const shaderPath = path.join(shadersPath, shaderFileName);
     await fs.writeFile(shaderPath, shaderContent, 'utf-8');
 
-    // For Shader Graph, also create the meta file
-    if (shaderType === 'urpGraph' || shaderType === 'hdrpGraph') {
-      await this.createShaderGraphMetaFile(shaderPath);
+    // Create meta file for all shader types
+    const guid = await UnityMetaGenerator.createMetaFile(shaderPath);
+    this.logger.info(`Created shader with GUID: ${guid}`);
+    
+    // Store the GUID for immediate lookup
+    this.recentlyCreatedShaders.set(shaderName, guid);
+    
+    // Determine actual shader name based on type
+    let actualShaderName = shaderName;
+    if (shaderType === 'builtin' || shaderType === 'urp' || shaderType === 'hdrp') {
+      // For code shaders, the template uses Custom/ prefix
+      actualShaderName = `Custom/${shaderName}`;
+      this.recentlyCreatedShaders.set(actualShaderName, guid);
+    }
+    
+    // For custom content, try to extract the actual shader name
+    if (customContent) {
+      const shaderMatch = customContent.match(/Shader\s+"([^"]+)"/i);
+      if (shaderMatch) {
+        actualShaderName = shaderMatch[1];
+        this.recentlyCreatedShaders.set(actualShaderName, guid);
+        this.logger.info(`Custom shader declares name: ${actualShaderName}`);
+      }
     }
 
     this.logger.info(`Shader created: ${shaderPath}`);
@@ -61,7 +83,7 @@ export class ShaderService extends BaseService {
       content: [
         {
           type: 'text',
-          text: `${shaderConfig.name} shader created: ${path.relative(this.unityProject!.projectPath, shaderPath)}`,
+          text: `${shaderConfig.name} shader created: ${path.relative(this.unityProject!.projectPath, shaderPath)}\nGUID: ${guid}\nShader Name: ${actualShaderName}\n\nYou can now create a material using this shader with the name: "${actualShaderName}"`,
         },
       ],
     };
@@ -84,29 +106,74 @@ export class ShaderService extends BaseService {
     }
   }
 
-  private async createShaderGraphMetaFile(shaderPath: string): Promise<void> {
-    const metaContent = `fileFormatVersion: 2
-guid: ${this.generateGUID()}
-ScriptedImporter:
-  internalIDToNameTable: []
-  externalObjects: {}
-  serializedVersion: 2
-  userData: 
-  assetBundleName: 
-  assetBundleVariant: 
-  script: {fileID: 11500000, guid: 625f186215c104763be7675aa2d941aa, type: 3}`;
+  /**
+   * Get shader GUID by name - searches for existing shaders or returns null
+   */
+  async getShaderGUID(shaderName: string): Promise<string | null> {
+    this.ensureProjectSet();
 
-    await fs.writeFile(`${shaderPath}.meta`, metaContent, 'utf-8');
-  }
-
-  private generateGUID(): string {
-    // Generate a Unity-compatible GUID
-    const hex = '0123456789abcdef';
-    let guid = '';
-    for (let i = 0; i < 32; i++) {
-      guid += hex[Math.floor(Math.random() * 16)];
+    // Check recently created shaders first
+    if (this.recentlyCreatedShaders.has(shaderName)) {
+      const guid = this.recentlyCreatedShaders.get(shaderName)!;
+      this.logger.info(`Found shader GUID in cache for ${shaderName}: ${guid}`);
+      return guid;
     }
-    return guid;
+
+    // Remove potential shader path prefixes
+    const cleanShaderName = shaderName.includes('/') ? 
+      shaderName.split('/').pop()! : shaderName;
+    
+    this.logger.info(`Searching for shader: ${shaderName} (clean name: ${cleanShaderName})`);
+
+    // Search for shader files
+    const shaderExtensions = ['.shader', '.shadergraph'];
+    
+    for (const ext of shaderExtensions) {
+      const files = await this.findShaderFiles(this.unityProject!.assetsPath, ext);
+      this.logger.info(`Found ${files.length} ${ext} files`);
+      
+      for (const file of files) {
+        const fileName = path.basename(file, ext);
+        this.logger.info(`Checking shader file: ${fileName} at ${file}`);
+        
+        // For .shader files, also check the Shader declaration inside
+        if (ext === '.shader') {
+          try {
+            const content = await fs.readFile(file, 'utf-8');
+            const shaderMatch = content.match(/Shader\s+"([^"]+)"/i);
+            if (shaderMatch) {
+              const declaredName = shaderMatch[1];
+              this.logger.info(`Shader declares name: ${declaredName}`);
+              
+              if (declaredName === shaderName) {
+                const guid = await UnityMetaGenerator.readGUIDFromMetaFile(file);
+                if (guid) {
+                  this.logger.info(`Found shader GUID by declaration for ${shaderName}: ${guid}`);
+                  return guid;
+                }
+              }
+            }
+          } catch (error) {
+            this.logger.error(`Error reading shader file ${file}`, error);
+          }
+        }
+        
+        // Check both exact match and clean name match
+        if (fileName === shaderName || fileName === cleanShaderName) {
+          // Try to read GUID from meta file
+          const guid = await UnityMetaGenerator.readGUIDFromMetaFile(file);
+          if (guid) {
+            this.logger.info(`Found shader GUID for ${shaderName}: ${guid}`);
+            return guid;
+          } else {
+            this.logger.info(`No meta file found for shader: ${file}`);
+          }
+        }
+      }
+    }
+    
+    this.logger.info(`No shader found with name: ${shaderName}`);
+    return null;
   }
 
   async listShaders(): Promise<CallToolResult> {

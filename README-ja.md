@@ -1,74 +1,57 @@
-# MCP Server for Unity
+# Unity MCP Server
 
-Model Context Protocol (MCP) サーバーで、ClaudeがUnityプロジェクトと直接連携し、スクリプト作成、アセット管理、プロジェクトビルドなどのツールを提供します。
+[English README is here](./README.md)
 
-## 機能
+Unity プロジェクトをプログラムで操作できるようにする Model Context Protocol (MCP) サーバーです。Claude Desktop との統合と HTTP API の両方をサポートし、柔軟な開発ワークフローを実現します。
 
-### コア機能
-- **プロジェクト管理**: Unityプロジェクトパスの設定と検証
-- **スクリプト操作**: C#スクリプトの作成、読み取り、一覧表示（フォルダ整理対応）
-- **アセット作成**: Unityシーン、マテリアル、プレファブの生成
-- **アセット管理**: タイプ別にプロジェクトアセットの一覧表示とフィルタリング
-- **プロジェクト情報**: Unityバージョンとプロジェクト統計の取得
+## 主な機能
 
-### 高度な機能
-- **シェーダーサポート**: Built-in、URP、HDRPレンダーパイプライン用シェーダーの作成
-- **Shader Graph**: URPとHDRP用のビジュアルシェーダーグラフの生成
-- **エディタ拡張**: カスタムエディタウィンドウ、インスペクタ、プロパティドロワー、メニューアイテムの作成
-- **ProBuilder統合**: ProBuilder APIを使用した3Dモデルとプロシージャルメッシュの作成
-- **ランタイムメッシュ生成**: 実行時の動的なメッシュ生成と修正
+### 📦 コア機能
+- **プロジェクト管理**: Unity プロジェクトの設定と自動検証
+- **アセット作成**: スクリプト、マテリアル、シェーダー、シーンの作成
+- **アセット管理**: Unity アセットの読み取り、一覧表示、更新
+- **ビルド自動化**: マルチプラットフォームビルドのカスタム設定
+- **レンダーパイプライン検出**: Built-in、URP、HDRP の自動検出
 
-### 自動化と効率化
-- **自動Unityリフレッシュ**: アセットデータベースの更新とスクリプトの再コンパイル
-- **バッチ操作**: 複数のファイル操作をキューに入れて効率的に一度でリフレッシュ
-- **ビルド自動化**: コマンドラインから複数プラットフォーム用のUnityプロジェクトビルド
-- **パッケージ管理**: スマート検索機能付きのUnityパッケージの検索、インストール、削除
-- **ファイルシステムウォッチャー**: Unity自動同期のためのリアルタイム監視
+### 🎨 マテリアル管理
+- **マテリアル作成**: レンダーパイプラインを自動検出して適切なシェーダーを選択
+- **シェーダー更新**: GUID 管理によるマテリアルシェーダーの変更
+- **プロパティ編集**: カラー、フロート、テクスチャ、ベクターの更新
+- **一括変換**: 複数のマテリアルを異なるシェーダーに変換
+- **マテリアル読み取り**: マテリアルプロパティとシェーダー情報の検査
 
-### アーキテクチャの利点
-- **サービス指向アーキテクチャ**: 拡張とメンテナンスが容易なモジュラー設計
-- **依存性注入**: 柔軟なサービス構成とテスト
-- **包括的な検証**: パストラバーサル保護と入力サニタイゼーション
-- **テンプレートシステム**: カスタマイズ可能なテンプレートによる一貫したコード生成
-- **エラーハンドリング**: リカバリー提案付きの詳細なエラーメッセージ
+### 📝 コード管理
+- **スクリプト作成**: 適切な名前空間構造を持つ C# スクリプトの作成
+- **スクリプト更新**: 完全なコンテンツ置換による既存スクリプトの更新
+- **コード分析**: 差分比較、重複クラス検出
+- **名前空間管理**: ファイル位置に基づく名前空間の自動提案と適用
+- **コンパイル監視**: リアルタイムのコンパイルエラー追跡
 
-## 必要条件
-
-- Node.js 18.x 以上
-- Unity 2021.3 LTS 以降（ビルド機能を使用する場合）
-- Claude Desktop
+### 🛠️ 高度な機能
+- **エディター拡張**: カスタムウィンドウ、インスペクター、プロパティドロワー
+- **シェーダー作成**: Built-in、URP、HDRP、Shader Graph のサポート
+- **Unity リフレッシュ**: バッチ操作による自動アセットデータベース更新
+- **診断**: コンパイルエラー、アセット検証、エディターログ分析
 
 ## インストール
 
-### クイックセットアップ（Unix/Linux/macOS）
-
 ```bash
-git clone https://github.com/zabaglione/mcp-server-unity.git
-cd mcp-server-unity
-./setup.sh
-```
+# リポジトリをクローン
+git clone https://github.com/zabaglione/unity-mcp-server.git
+cd unity-mcp-server
 
-### 手動セットアップ
-
-1. リポジトリのクローン:
-```bash
-git clone https://github.com/zabaglione/mcp-server-unity.git
-cd mcp-server-unity
-```
-
-2. 依存関係のインストール:
-```bash
+# 依存関係をインストール
 npm install
-```
 
-3. プロジェクトのビルド:
-```bash
+# プロジェクトをビルド
 npm run build
 ```
 
-## 設定
+## 使用方法
 
-Claude Desktopの設定ファイルに以下を追加してください：
+### オプション 1: Claude Desktop (MCP stdio)
+
+Claude Desktop の設定ファイルに追加：
 
 **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
 **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
@@ -78,13 +61,63 @@ Claude Desktopの設定ファイルに以下を追加してください：
   "mcpServers": {
     "mcp-server-unity": {
       "command": "node",
-      "args": ["/absolute/path/to/mcp-server-unity/build/index.js"]
+      "args": ["/absolute/path/to/unity-mcp/build/index.js"]
     }
   }
 }
 ```
 
-`/absolute/path/to/mcp-server-unity` を実際のインストールパスに置き換えてください。
+Claude Desktop で自然言語を使用：
+- 「Unity プロジェクトを /path/to/project に設定」
+- 「時間とともに色が変化するシェーダーを作成」
+- 「ダブルジャンプ機能付きのプレイヤーコントローラーを生成」
+
+### オプション 2: HTTP サーバー
+
+1. **HTTP サーバーを起動:**
+```bash
+npm run start:http
+# カスタムポートを指定
+PORT=8080 npm run start:http
+```
+
+2. **Unity プロジェクトを設定:**
+```bash
+curl -X POST http://localhost:3000/api/project/setup \
+  -H "Content-Type: application/json" \
+  -d '{"projectPath": "/path/to/your/unity/project"}'
+```
+
+## ドキュメント
+
+- [API ドキュメント](./docs/api/HTTP_API.md) - 完全な HTTP API リファレンス
+- [利用可能なツール](./docs/api/AVAILABLE_TOOLS.md) - すべての MCP ツールのリスト
+- [ドキュメントインデックス](./docs/index.md) - すべてのドキュメント
+
+## 主な MCP ツール
+
+### プロジェクト管理
+- `project_setup_path` - Unity プロジェクトパスを設定
+- `project_read_info` - プロジェクト情報を取得
+
+### アセット作成と管理
+- `asset_create_script` - C# スクリプトを作成
+- `asset_create_material` - マテリアルを作成
+- `asset_create_material_with_shader` - 特定のシェーダーでマテリアルを作成
+- `asset_create_shader` - シェーダーを作成
+- `asset_update_material_shader` - マテリアルのシェーダーを変更
+- `asset_update_material_properties` - マテリアルプロパティを更新
+
+### コード分析
+- `code_analyze_diff` - ファイル間の詳細な差分を取得
+- `code_detect_duplicates` - 重複するクラス名を検出
+- `code_suggest_namespace` - ファイル用の名前空間を提案
+- `code_apply_namespace` - スクリプトに名前空間を適用
+
+### コンパイルツール
+- `compile_get_errors` - コンテキスト付きのコンパイルエラーを取得
+- `compile_get_status` - 現在のコンパイル状態を取得
+- `compile_install_helper` - コンパイル監視ヘルパーをインストール
 
 ## 使用例
 
@@ -94,124 +127,69 @@ Claude Desktopは自然な日本語での入力を適切なMCPツールコマン
 ```
 「Unityプロジェクトを /Users/me/MyGame に設定して」
 「/path/to/project のUnityプロジェクトを使用」
-「Unityプロジェクトパスを設定: /Users/john/UnityProjects/MyAwesomeGame」
 ```
 
 ### スクリプトの作成
 ```
 「基本的な移動処理を含むPlayerControllerスクリプトを作成」
 「Enemiesフォルダに新しいEnemyAIというC#スクリプトを作って」
-「GameManagerシングルトンスクリプトを生成」
 ```
 
-### スクリプトの読み取り
+### マテリアルとシェーダー
 ```
-「PlayerControllerスクリプトを表示して」
-「GameManager.csファイルを読んで」
-「EnemyAIスクリプトの中身は？」
-```
-
-### アセットの作成
-```
-「MainMenuという新しいシーンを作成」
-「PlayerMaterialという名前のマテリアルを作って」
-「WaterShaderというURPシェーダーを作成」
-「CustomLitというHDRP用のShader Graphを生成」
+「時間とともに色が変化するシェーダーを作成」
+「作成したシェーダーを使ってマテリアルを作成」
+「マテリアルのプロパティを更新」
 ```
 
-### パッケージ管理
+### コード分析
 ```
-「ProBuilderパッケージを検索」
-「2Dパッケージには何がある？」
-「レンダーパイプライン用のパッケージを探して」
-「ProBuilderをインストール」
-「TextMeshProのバージョン3.0.6をインストール」
-「ProBuilderパッケージを削除」
-「インストール済みパッケージを表示」
-「ProBuilder、TextMeshPro、Cinemachineを一度にインストール」
+「PlayerControllerの変更内容を確認」
+「重複するクラス名がないかチェック」
+「適切な名前空間を提案」
 ```
 
-### エディタ拡張
-```
-「レベルデザイン用のカスタムエディタウィンドウを作成」
-「MyComponent用のカスタムインスペクタを作って」
-「RangeAttribute用のプロパティドロワーを生成」
-```
+## 最近の更新
 
-### ProBuilder操作
-```
-「ProBuilderのキューブプレファブを作成」
-「メッシュジェネレータースクリプトを生成」
-「ProBuilderシェイプクリエイターを作って」
-```
+### v2.1.0 (2025-06-06)
+- シェーダー・マテリアル間の GUID 参照問題を修正
+- すべての Unity アセット用のメタファイル生成を追加
+- カスタムシェーダーの検出と検索を改善
+- 適切なシェーダー参照によるマテリアル作成を強化
+- 包括的なデバッグとログ出力を追加
 
-### ビルド操作
-```
-「プロジェクトをWindows用にビルド」
-「/Users/me/BuildsにmacOSビルドを作成」
-「WebGL用に/path/to/outputにビルド」
-```
+完全なバージョン履歴は [CHANGELOG.md](./CHANGELOG.md) を参照してください。
 
-### ユーティリティ操作
-```
-「プロジェクト内の全スクリプトを一覧表示」
-「全てのシェーダーを表示」
-「プロジェクト情報を取得」
-「Unityをリフレッシュ」
-「バッチ操作を開始」
+## 既知の問題と解決策
+
+### カスタムシェーダー参照
+カスタムシェーダーを作成する際は、マテリアル作成時に完全なシェーダー名（"Custom/" プレフィックスを含む）を使用してください：
+
+```bash
+# シェーダーを作成
+asset_create_shader shaderName:"MyShader" shaderType:"builtin"
+# 戻り値: Shader Name: Custom/MyShader
+
+# そのシェーダーでマテリアルを作成
+asset_create_material_with_shader materialName:"MyMaterial" shaderName:"Custom/MyShader"
 ```
 
-## ツールリファレンス
+## 要件
 
-直接ツールを使用する場合の利用可能なMCPツール：
+- Node.js 18.x 以上
+- Unity 2021.3 LTS 以降
+- npm または yarn
 
-### プロジェクト管理
-- `project_setup_path` - Unityプロジェクトパスを設定
-- `project_read_info` - プロジェクト情報を取得
+## サポートされるプラットフォーム
 
-### アセット作成・管理
-- `asset_create_script` - C#スクリプトを作成
-- `asset_read_script` - スクリプト内容を読み取り
-- `asset_list_scripts` - 全スクリプトを一覧表示
-- `asset_create_scene` - Unityシーンを作成
-- `asset_create_material` - マテリアルを作成
-- `asset_create_shader` - シェーダーを作成
-- `asset_list_shaders` - 全シェーダーを一覧表示
-- `asset_list_all` - タイプ別に全アセットを一覧表示
+- macOS
+- Windows
+- Linux
 
-### エディタ拡張
-- `editor_create_script` - エディタスクリプトを作成
-- `editor_list_scripts` - エディタスクリプトを一覧表示
+## サポートされる Unity バージョン
 
-### ProBuilder/モデリング
-- `modeling_create_script` - ProBuilderスクリプトを作成
-- `modeling_create_prefab` - ProBuilderプレファブを作成
-- `modeling_list_scripts` - ProBuilderスクリプトを一覧表示
-
-### パッケージ管理
-- `package_search` - パッケージを検索
-- `package_install` - パッケージをインストール
-- `package_install_multiple` - 複数パッケージをインストール
-- `package_remove` - パッケージを削除
-- `package_list` - インストール済みパッケージを一覧表示
-
-### ビルド操作
-- `build_execute_project` - Unityプロジェクトをビルド
-
-### システム操作
-- `system_setup_refresh` - Unityリフレッシュハンドラーをセットアップ
-- `system_refresh_assets` - Unityアセットをリフレッシュ
-- `system_batch_start` - バッチモードを開始
-- `system_batch_end` - バッチモードを終了
-
-## サポートされているビルドターゲット
-
-- StandaloneWindows64
-- StandaloneOSX
-- StandaloneLinux64
-- iOS
-- Android
-- WebGL
+- Unity 2021.3 LTS 以降
+- Unity 6000.x (Unity 6)
 
 ## 開発
 
@@ -221,39 +199,29 @@ Claude Desktopは自然な日本語での入力を適切なMCPツールコマン
 - `npm run dev` - 開発用ウォッチモード
 - `npm start` - ビルド済みサーバーを実行
 - `npm run clean` - ビルドディレクトリをクリーン
-- `npm run test` - 自動テストを実行（実装時）
+- `npm run test` - 自動テストを実行
 - `npm run test:manual` - 手動テストの手順
 
 ### プロジェクト構造
 
 ```
-mcp-server-unity/
+unity-mcp-server/
 ├── src/
-│   ├── server.ts                 # メインサーバー実装
-│   ├── config/                   # 設定ファイル
-│   ├── services/                 # サービスレイヤー（モジュラーアーキテクチャ）
-│   │   ├── project-service.ts    # Unityプロジェクト管理
-│   │   ├── script-service.ts     # スクリプト操作
-│   │   ├── asset-service.ts      # アセット作成
-│   │   ├── shader-service.ts     # シェーダー管理
-│   │   ├── editor-script-service.ts  # エディタ拡張
-│   │   ├── probuilder-service.ts # ProBuilder統合
-│   │   ├── package-service.ts    # パッケージ管理
-│   │   ├── build-service.ts      # ビルド自動化
-│   │   └── unity-refresh-service.ts  # Unityリフレッシュシステム
-│   ├── templates/                # コード生成テンプレート
-│   ├── types/                    # TypeScript型定義
-│   ├── utils/                    # ユーティリティ関数
-│   └── validators/               # 入力検証
-├── tests/
-│   ├── comprehensive-test.js     # 全機能テストスイート
-│   ├── integration-test.js       # 統合テスト
-│   └── run-manual-tests.sh      # 手動テストランナー
-├── build/                        # コンパイル出力（gitignore対象）
-├── package.json                  # プロジェクト設定
-├── tsconfig.json                 # TypeScript設定
-├── setup.sh                      # セットアップスクリプト
-└── REGRESSION_TEST_CASES.md      # 詳細なテストドキュメント
+│   ├── index.ts                 # MCPサーバー実装
+│   ├── http-server.ts           # HTTPサーバー実装
+│   ├── services/                # サービスレイヤー
+│   │   ├── project-service.ts   # プロジェクト管理
+│   │   ├── script-service.ts    # スクリプト操作
+│   │   ├── material-service.ts  # マテリアル管理
+│   │   ├── shader-service.ts    # シェーダー管理
+│   │   ├── code-analysis-service.ts    # コード分析
+│   │   └── compilation-service.ts      # コンパイル監視
+│   ├── templates/               # コード生成テンプレート
+│   ├── utils/                   # ユーティリティ関数
+│   └── validators/              # 入力検証
+├── tests/                       # テストスイート
+├── docs/                        # ドキュメント
+└── build/                       # コンパイル出力
 ```
 
 ## トラブルシューティング
@@ -264,7 +232,7 @@ mcp-server-unity/
 
 ### ビルドコマンドが失敗する
 - Unityが期待される場所にインストールされていることを確認
-- カスタムUnityインストールの場合は、フォークでUnityパスを修正
+- カスタムUnityインストールの場合は、Unityパスを修正
 
 ### スクリプトが見つからない
 - スクリプトはAssetsフォルダから再帰的に検索されます
@@ -272,24 +240,10 @@ mcp-server-unity/
 
 ## テスト
 
-プロジェクトには100%の機能カバレッジを持つ包括的なテストケースが含まれています：
-
-### 包括的テストスイート
-```bash
-# 全機能テストの実行（38テストケース）
-node tests/comprehensive-test.js /path/to/unity/project
-
-# 例
-node tests/comprehensive-test.js /Users/me/Unity/MyProject
-```
-
-### 自動統合テスト
+### 統合テスト
 ```bash
 # Unityプロジェクトを指定して統合テストを実行
 npm run test:integration /path/to/unity/project
-
-# 例
-npm run test:integration /Users/me/Unity/MyProject
 ```
 
 ### 手動テスト
@@ -298,14 +252,7 @@ npm run test:integration /Users/me/Unity/MyProject
 ./tests/run-manual-tests.sh /path/to/unity/project
 ```
 
-### テストカバレッジ
-- **38の自動テストケース**で全機能をカバー
-- **10のテストカテゴリ**: プロジェクト、スクリプト、アセット、シェーダー、エディタ、ProBuilder、パッケージ、リフレッシュ、ビルド、エラー
-- テスト実行後の**自動クリーンアップ**
-- 各テストの**パフォーマンスメトリクス**
-
-- **テストケース**: 詳細なテストケースは [REGRESSION_TEST_CASES.md](REGRESSION_TEST_CASES.md) を参照
-- **テストフレームワーク**: `tests/integration-test.js` に統合テスト
+詳細なテストドキュメントは [tests/README.md](./tests/README.md) を参照してください。
 
 ## コントリビューション
 
@@ -315,8 +262,6 @@ npm run test:integration /Users/me/Unity/MyProject
 
 MITライセンス - 詳細は [LICENSE](LICENSE) ファイルを参照してください。
 
-## リポジトリ
+## サポート
 
-推奨リポジトリ名: `mcp-server-unity`
-
-MCPエコシステムの命名規則に従い、MCPサーバーは `mcp-server-` で始まる名前を使用します。
+問題や機能リクエストについては、[GitHub issue tracker](https://github.com/zabaglione/unity-mcp-server/issues) を使用してください。

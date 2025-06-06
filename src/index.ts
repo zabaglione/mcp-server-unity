@@ -603,6 +603,24 @@ class UnityMCPServer {
           },
         },
         {
+          name: 'asset_create_material_with_shader',
+          description: 'Create a material with a specific shader (including custom shaders)',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              materialName: {
+                type: 'string',
+                description: 'Name of the material (without .mat extension)',
+              },
+              shaderName: {
+                type: 'string',
+                description: 'Name of the shader to use (e.g., "TimeColorShader", "Universal Render Pipeline/Lit")',
+              },
+            },
+            required: ['materialName', 'shaderName'],
+          },
+        },
+        {
           name: 'asset_update_script',
           description: 'Update content of an existing C# script',
           inputSchema: {
@@ -944,6 +962,15 @@ class UnityMCPServer {
               args.materials,
               args.targetShader,
               args.propertyMapping
+            );
+            
+          case 'asset_create_material_with_shader':
+            if (!args || typeof args.materialName !== 'string' || typeof args.shaderName !== 'string') {
+              throw new McpError(ErrorCode.InvalidParams, 'materialName and shaderName are required');
+            }
+            return await this.services.materialService.createMaterialWithShader(
+              args.materialName,
+              args.shaderName
             );
 
           case 'asset_update_script':

@@ -1,6 +1,8 @@
 # Unity MCP Server
 
-AI-driven Unity development server supporting both Claude Desktop (stdio) and HTTP API for streamable communication, real-time updates, and intelligent automation.
+[日本語版 README はこちら](./README-ja.md)
+
+A Model Context Protocol (MCP) server that enables AI assistants like Claude to interact with Unity projects programmatically. Supports both Claude Desktop integration and HTTP API for flexible development workflows.
 
 ## Features
 
@@ -93,9 +95,11 @@ curl -X POST http://localhost:3000/api/ai/analyze \
   -d '{"description": "Create a 2D platformer with inventory system"}'
 ```
 
-## API Documentation
+## Documentation
 
-See [HTTP_API.md](HTTP_API.md) for complete API documentation.
+- [API Documentation](./docs/api/HTTP_API.md) - Complete HTTP API reference
+- [Available Tools](./docs/api/AVAILABLE_TOOLS.md) - List of all MCP tools
+- [Documentation Index](./docs/index.md) - All documentation
 
 ### Key Endpoints
 
@@ -218,6 +222,7 @@ For direct tool usage, here are the available MCP tools:
 - `editor_list_scripts` - List editor scripts
 
 ### Material Management
+- `asset_create_material_with_shader` - Create material with specific shader
 - `asset_update_material_shader` - Change material shader
 - `asset_update_material_properties` - Update material properties
 - `asset_read_material` - Read material properties
@@ -345,8 +350,32 @@ npm run test:integration /Users/me/Unity/MyProject
 - **Automatic cleanup** after test execution
 - **Performance metrics** for each test
 
-- **Test Cases**: See [REGRESSION_TEST_CASES.md](REGRESSION_TEST_CASES.md) for detailed test cases
-- **Test Framework**: Integration tests in `tests/integration-test.js`
+- **Test Documentation**: See [tests/README.md](./tests/README.md) for testing guide
+- **Test Cases**: Comprehensive test coverage in `tests/` directory
+
+## Recent Updates
+
+### v2.1.0 (2025-06-06)
+- Fixed shader-material GUID reference issues
+- Added meta file generation for all Unity assets
+- Improved custom shader detection and lookup
+- Enhanced material creation with proper shader references
+- Added comprehensive debugging and logging
+
+See [CHANGELOG.md](./CHANGELOG.md) for full version history.
+
+## Known Issues and Solutions
+
+### Custom Shader References
+When creating custom shaders, use the full shader name (including "Custom/" prefix) when creating materials:
+```bash
+# Create shader
+asset_create_shader shaderName:"MyShader" shaderType:"builtin"
+# Returns: Shader Name: Custom/MyShader
+
+# Create material with that shader
+asset_create_material_with_shader materialName:"MyMaterial" shaderName:"Custom/MyShader"
+```
 
 ## Contributing
 
