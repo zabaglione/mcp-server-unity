@@ -728,25 +728,43 @@ export class MaterialService extends BaseService {
       throw new Error(`Invalid material content: ${error instanceof Error ? error.message : String(error)}`);
     }
 
-    // Backup current material
+    // Read current content for temporary backup
     const currentContent = await fs.readFile(materialPath, 'utf-8');
     const backupPath = `${materialPath}.backup`;
-    await fs.writeFile(backupPath, currentContent, 'utf-8');
+    let updateSuccess = false;
 
-    // Update the material
-    await fs.writeFile(materialPath, newContent, 'utf-8');
+    try {
+      // Create temporary backup
+      await fs.writeFile(backupPath, currentContent, 'utf-8');
 
-    this.logger.info(`Material updated: ${materialPath}`);
+      // Update the material
+      await fs.writeFile(materialPath, newContent, 'utf-8');
+      updateSuccess = true;
 
-    return {
-      content: [{
-        type: 'text',
-        text: `Material updated successfully:\n` +
-              `File: ${path.relative(this.unityProject!.projectPath, materialPath)}\n` +
-              `Backup created: ${path.basename(backupPath)}\n\n` +
-              `Note: Unity will refresh the material automatically.`
-      }]
-    };
+      this.logger.info(`Material updated: ${materialPath}`);
+
+      return {
+        content: [{
+          type: 'text',
+          text: `Material updated successfully:\n` +
+                `File: ${path.relative(this.unityProject!.projectPath, materialPath)}\n\n` +
+                `Note: Unity will refresh the material automatically.`
+        }]
+      };
+    } catch (error) {
+      // If update failed, restore from backup
+      if (!updateSuccess && await this.fileExists(backupPath)) {
+        await fs.writeFile(materialPath, currentContent, 'utf-8');
+      }
+      throw error;
+    } finally {
+      // Always clean up backup file
+      try {
+        await fs.unlink(backupPath);
+      } catch {
+        // Ignore errors when deleting backup
+      }
+    }
   }
 
   /**

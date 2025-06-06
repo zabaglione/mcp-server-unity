@@ -202,38 +202,56 @@ export class ShaderService extends BaseService {
       };
     }
 
-    // Backup current shader (optional)
+    // Create temporary backup
     const backupPath = `${shaderPath}.backup`;
-    await fs.writeFile(backupPath, currentContent, 'utf-8');
+    let updateSuccess = false;
+    
+    try {
+      // Save backup
+      await fs.writeFile(backupPath, currentContent, 'utf-8');
 
-    // Update the shader
-    await fs.writeFile(shaderPath, content, 'utf-8');
+      // Update the shader
+      await fs.writeFile(shaderPath, content, 'utf-8');
+      updateSuccess = true;
 
-    // Extract the actual shader name from content
-    const shaderMatch = content.match(/Shader\s+"([^"]+)"/i);
-    const actualShaderName = shaderMatch ? shaderMatch[1] : shaderName;
+      // Extract the actual shader name from content
+      const shaderMatch = content.match(/Shader\s+"([^"]+)"/i);
+      const actualShaderName = shaderMatch ? shaderMatch[1] : shaderName;
 
-    // Update the cache
-    const guid = await UnityMetaGenerator.readGUIDFromMetaFile(shaderPath);
-    if (guid) {
-      this.recentlyCreatedShaders.set(actualShaderName, guid);
-      if (!actualShaderName.includes('/') && content.includes('"Custom/')) {
-        this.recentlyCreatedShaders.set(`Custom/${shaderName}`, guid);
+      // Update the cache
+      const guid = await UnityMetaGenerator.readGUIDFromMetaFile(shaderPath);
+      if (guid) {
+        this.recentlyCreatedShaders.set(actualShaderName, guid);
+        if (!actualShaderName.includes('/') && content.includes('"Custom/')) {
+          this.recentlyCreatedShaders.set(`Custom/${shaderName}`, guid);
+        }
+      }
+
+      this.logger.info(`Shader updated: ${shaderPath}`);
+
+      return {
+        content: [{
+          type: 'text',
+          text: `Shader updated successfully:\n` +
+                `File: ${path.relative(this.unityProject!.projectPath, shaderPath)}\n` +
+                `Shader Name: ${actualShaderName}\n\n` +
+                `Note: Unity will recompile the shader automatically.`
+        }]
+      };
+    } catch (error) {
+      // If update failed, restore from backup
+      if (!updateSuccess && await this.fileExists(backupPath)) {
+        await fs.writeFile(shaderPath, currentContent, 'utf-8');
+      }
+      throw error;
+    } finally {
+      // Always clean up backup file
+      try {
+        await fs.unlink(backupPath);
+      } catch {
+        // Ignore errors when deleting backup
       }
     }
-
-    this.logger.info(`Shader updated: ${shaderPath}`);
-
-    return {
-      content: [{
-        type: 'text',
-        text: `Shader updated successfully:\n` +
-              `File: ${path.relative(this.unityProject!.projectPath, shaderPath)}\n` +
-              `Shader Name: ${actualShaderName}\n` +
-              `Backup created: ${path.basename(backupPath)}\n\n` +
-              `Note: Unity will recompile the shader automatically.`
-      }]
-    };
   }
 
   /**
@@ -314,6 +332,15 @@ export class ShaderService extends BaseService {
         },
       ],
     };
+  }
+
+  private async fileExists(filePath: string): Promise<boolean> {
+    try {
+      await fs.access(filePath);
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   private async findShaderFiles(directory: string, extension: string): Promise<string[]> {
