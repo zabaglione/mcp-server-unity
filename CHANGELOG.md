@@ -5,6 +5,34 @@ All notable changes to Unity MCP Server will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.0] - 2025-06-06
+
+### Added
+- Shader and material update features:
+  - `asset_update_shader` - Update existing shader content with automatic temporary backup
+  - `asset_read_shader` - Read shader file content (supports both code and ShaderGraph)
+  - `asset_update_material` - Update entire material content with YAML validation
+  - `asset_clone_material` - Clone material with a new name
+  - `asset_list_materials` - List all materials in the project
+- Enhanced shader service:
+  - Shader GUID caching for faster lookups
+  - Shader name detection from file content
+  - Support for finding shaders by file name or internal shader name
+- Temporary backup system:
+  - Creates backup files only during update operations
+  - Automatically cleans up backup files after success or failure
+  - Restores original content on update failure
+
+### Changed
+- Backup system now uses temporary files with automatic cleanup
+- Improved shader lookup to check both file names and shader declarations
+- Enhanced error handling with try-finally blocks for resource cleanup
+
+### Fixed
+- Fixed shader-material GUID reference issues for custom shaders
+- Added UnityMetaGenerator for proper meta file creation
+- Improved material service to work with custom shader GUIDs
+
 ## [2.1.0] - 2025-06-06
 
 ### Added

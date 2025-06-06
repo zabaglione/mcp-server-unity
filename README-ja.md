@@ -102,11 +102,25 @@ curl -X POST http://localhost:3000/api/project/setup \
 
 ### アセット作成と管理
 - `asset_create_script` - C# スクリプトを作成
-- `asset_create_material` - マテリアルを作成
+- `asset_read_script` - スクリプト内容を読み取り
+- `asset_update_script` - スクリプト内容を更新
+- `asset_list_scripts` - 全スクリプトを一覧表示
+- `asset_create_scene` - Unity シーンを作成
+- `asset_create_shader` - シェーダーを作成（builtin、URP、HDRP、ShaderGraph）
+- `asset_read_shader` - シェーダー内容を読み取り
+- `asset_update_shader` - シェーダー内容を更新
+- `asset_list_shaders` - 全シェーダーを一覧表示
+
+### マテリアル管理
+- `asset_create_material` - レンダーパイプライン自動検出でマテリアルを作成
 - `asset_create_material_with_shader` - 特定のシェーダーでマテリアルを作成
-- `asset_create_shader` - シェーダーを作成
 - `asset_update_material_shader` - マテリアルのシェーダーを変更
 - `asset_update_material_properties` - マテリアルプロパティを更新
+- `asset_read_material` - マテリアル情報を読み取り
+- `asset_update_material` - マテリアル全体を更新（YAML形式）
+- `asset_clone_material` - マテリアルを新しい名前でクローン
+- `asset_batch_convert_materials` - 複数マテリアルを一括変換
+- `asset_list_materials` - 全マテリアルを一覧表示
 
 ### コード分析
 - `code_analyze_diff` - ファイル間の詳細な差分を取得
@@ -140,6 +154,8 @@ Claude Desktopは自然な日本語での入力を適切なMCPツールコマン
 「時間とともに色が変化するシェーダーを作成」
 「作成したシェーダーを使ってマテリアルを作成」
 「マテリアルのプロパティを更新」
+「既存のシェーダーを更新」
+「マテリアルをクローンして新しいバリエーションを作成」
 ```
 
 ### コード分析
@@ -150,6 +166,13 @@ Claude Desktopは自然な日本語での入力を適切なMCPツールコマン
 ```
 
 ## 最近の更新
+
+### v2.2.0 (2025-06-06)
+- シェーダーとマテリアルの更新機能を追加
+- 一時的なバックアップシステムを実装（自動クリーンアップ付き）
+- マテリアルクローン機能を追加
+- シェーダーGUIDキャッシュと検索を強化
+- シェーダーの包括的な読み取り操作を追加
 
 ### v2.1.0 (2025-06-06)
 - シェーダー・マテリアル間の GUID 参照問題を修正

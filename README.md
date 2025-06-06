@@ -210,10 +210,12 @@ For direct tool usage, here are the available MCP tools:
 ### Asset Creation & Management
 - `asset_create_script` - Create C# scripts
 - `asset_read_script` - Read script contents
+- `asset_update_script` - Update script content
 - `asset_list_scripts` - List all scripts
 - `asset_create_scene` - Create Unity scenes
-- `asset_create_material` - Create materials
-- `asset_create_shader` - Create shaders
+- `asset_create_shader` - Create shaders (builtin, URP, HDRP, ShaderGraph)
+- `asset_read_shader` - Read shader content
+- `asset_update_shader` - Update shader content
 - `asset_list_shaders` - List all shaders
 - `asset_list_all` - List all assets by type
 
@@ -222,12 +224,15 @@ For direct tool usage, here are the available MCP tools:
 - `editor_list_scripts` - List editor scripts
 
 ### Material Management
+- `asset_create_material` - Create materials with auto-detected render pipeline
 - `asset_create_material_with_shader` - Create material with specific shader
 - `asset_update_material_shader` - Change material shader
 - `asset_update_material_properties` - Update material properties
 - `asset_read_material` - Read material properties
+- `asset_update_material` - Update entire material content (YAML)
+- `asset_clone_material` - Clone material with new name
 - `asset_batch_convert_materials` - Batch convert materials
-- `asset_update_script` - Update script content
+- `asset_list_materials` - List all materials
 
 ### Code Analysis
 - `code_analyze_diff` - Get detailed diff between files
@@ -354,6 +359,13 @@ npm run test:integration /Users/me/Unity/MyProject
 - **Test Cases**: Comprehensive test coverage in `tests/` directory
 
 ## Recent Updates
+
+### v2.2.0 (2025-06-06)
+- Added shader and material update features
+- Implemented temporary backup system with automatic cleanup
+- Added material cloning functionality
+- Enhanced shader GUID caching and lookup
+- Added comprehensive read operations for shaders
 
 ### v2.1.0 (2025-06-06)
 - Fixed shader-material GUID reference issues
