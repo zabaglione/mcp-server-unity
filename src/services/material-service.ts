@@ -699,4 +699,123 @@ export class MaterialService extends BaseService {
       // Directory might already exist
     }
   }
+
+  /**
+   * Update an existing material file (complete replacement)
+   */
+  async updateMaterial(
+    materialName: string,
+    newContent: string
+  ): Promise<CallToolResult> {
+    this.ensureProjectSet();
+
+    // Ensure .mat extension
+    if (!materialName.endsWith('.mat')) {
+      materialName += '.mat';
+    }
+
+    // Find the material file
+    const materialPath = await this.findMaterialFile(materialName);
+    if (!materialPath) {
+      throw new Error(`Material not found: ${materialName}`);
+    }
+
+    // Validate the new content is valid YAML
+    try {
+      const processedContent = this.preprocessUnityYAML(newContent);
+      yaml.load(processedContent);
+    } catch (error) {
+      throw new Error(`Invalid material content: ${error instanceof Error ? error.message : String(error)}`);
+    }
+
+    // Backup current material
+    const currentContent = await fs.readFile(materialPath, 'utf-8');
+    const backupPath = `${materialPath}.backup`;
+    await fs.writeFile(backupPath, currentContent, 'utf-8');
+
+    // Update the material
+    await fs.writeFile(materialPath, newContent, 'utf-8');
+
+    this.logger.info(`Material updated: ${materialPath}`);
+
+    return {
+      content: [{
+        type: 'text',
+        text: `Material updated successfully:\n` +
+              `File: ${path.relative(this.unityProject!.projectPath, materialPath)}\n` +
+              `Backup created: ${path.basename(backupPath)}\n\n` +
+              `Note: Unity will refresh the material automatically.`
+      }]
+    };
+  }
+
+  /**
+   * Clone a material with a new name
+   */
+  async cloneMaterial(
+    sourceMaterialName: string,
+    targetMaterialName: string
+  ): Promise<CallToolResult> {
+    this.ensureProjectSet();
+
+    // Ensure .mat extension
+    if (!sourceMaterialName.endsWith('.mat')) {
+      sourceMaterialName += '.mat';
+    }
+    if (!targetMaterialName.endsWith('.mat')) {
+      targetMaterialName += '.mat';
+    }
+
+    // Find source material
+    const sourcePath = await this.findMaterialFile(sourceMaterialName);
+    if (!sourcePath) {
+      throw new Error(`Source material not found: ${sourceMaterialName}`);
+    }
+
+    // Read source material
+    const content = await fs.readFile(sourcePath, 'utf-8');
+    const processedContent = this.preprocessUnityYAML(content);
+    const materialData = yaml.load(processedContent) as MaterialData;
+
+    // Update material name
+    materialData.Material.m_Name = targetMaterialName.replace('.mat', '');
+
+    // Determine target path
+    const sourceDir = path.dirname(sourcePath);
+    const targetPath = path.join(sourceDir, targetMaterialName);
+
+    // Check if target already exists
+    if (await this.fileExists(targetPath)) {
+      throw new Error(`Target material already exists: ${targetMaterialName}`);
+    }
+
+    // Write new material
+    const newContent = yaml.dump(materialData, {
+      lineWidth: -1,
+      noRefs: true,
+      flowLevel: 3,
+      styles: {
+        '!!int': 'decimal',
+        '!!float': 'decimal'
+      }
+    });
+
+    const finalContent = '%YAML 1.1\n%TAG !u! tag:unity3d.com,2011:\n--- !u!21 &2100000\n' + newContent;
+    await fs.writeFile(targetPath, finalContent, 'utf-8');
+
+    // Create meta file
+    await UnityMetaGenerator.createMaterialMetaFile(targetPath);
+
+    this.logger.info(`Material cloned: ${sourceMaterialName} -> ${targetMaterialName}`);
+
+    return {
+      content: [{
+        type: 'text',
+        text: `Material cloned successfully:\n` +
+              `Source: ${sourceMaterialName}\n` +
+              `Target: ${targetMaterialName}\n` +
+              `Path: ${path.relative(this.unityProject!.projectPath, targetPath)}`
+      }]
+    };
+  }
 }

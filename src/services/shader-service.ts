@@ -176,6 +176,121 @@ export class ShaderService extends BaseService {
     return null;
   }
 
+  /**
+   * Update an existing shader file
+   */
+  async updateShader(
+    shaderName: string,
+    content: string
+  ): Promise<CallToolResult> {
+    this.ensureProjectSet();
+
+    // Find the shader file
+    const shaderPath = await this.findShaderFile(shaderName);
+    if (!shaderPath) {
+      throw new Error(`Shader not found: ${shaderName}`);
+    }
+
+    // Read current content to check if it's different
+    const currentContent = await fs.readFile(shaderPath, 'utf-8');
+    if (currentContent === content) {
+      return {
+        content: [{
+          type: 'text',
+          text: `Shader ${shaderName} is already up to date.`
+        }]
+      };
+    }
+
+    // Backup current shader (optional)
+    const backupPath = `${shaderPath}.backup`;
+    await fs.writeFile(backupPath, currentContent, 'utf-8');
+
+    // Update the shader
+    await fs.writeFile(shaderPath, content, 'utf-8');
+
+    // Extract the actual shader name from content
+    const shaderMatch = content.match(/Shader\s+"([^"]+)"/i);
+    const actualShaderName = shaderMatch ? shaderMatch[1] : shaderName;
+
+    // Update the cache
+    const guid = await UnityMetaGenerator.readGUIDFromMetaFile(shaderPath);
+    if (guid) {
+      this.recentlyCreatedShaders.set(actualShaderName, guid);
+      if (!actualShaderName.includes('/') && content.includes('"Custom/')) {
+        this.recentlyCreatedShaders.set(`Custom/${shaderName}`, guid);
+      }
+    }
+
+    this.logger.info(`Shader updated: ${shaderPath}`);
+
+    return {
+      content: [{
+        type: 'text',
+        text: `Shader updated successfully:\n` +
+              `File: ${path.relative(this.unityProject!.projectPath, shaderPath)}\n` +
+              `Shader Name: ${actualShaderName}\n` +
+              `Backup created: ${path.basename(backupPath)}\n\n` +
+              `Note: Unity will recompile the shader automatically.`
+      }]
+    };
+  }
+
+  /**
+   * Read shader content
+   */
+  async readShader(shaderName: string): Promise<CallToolResult> {
+    this.ensureProjectSet();
+
+    const shaderPath = await this.findShaderFile(shaderName);
+    if (!shaderPath) {
+      throw new Error(`Shader not found: ${shaderName}`);
+    }
+
+    const content = await fs.readFile(shaderPath, 'utf-8');
+    const ext = path.extname(shaderPath);
+
+    return {
+      content: [{
+        type: 'text',
+        text: `Shader: ${shaderName}\n` +
+              `File: ${path.relative(this.unityProject!.projectPath, shaderPath)}\n` +
+              `Type: ${ext === '.shader' ? 'Code Shader' : 'Shader Graph'}\n\n` +
+              `Content:\n${content}`
+      }]
+    };
+  }
+
+  /**
+   * Find a shader file by name
+   */
+  private async findShaderFile(shaderName: string): Promise<string | null> {
+    const shaderExtensions = ['.shader', '.shadergraph'];
+    
+    for (const ext of shaderExtensions) {
+      // Try exact name with extension
+      if (shaderName.endsWith(ext)) {
+        const files = await this.findShaderFiles(this.unityProject!.assetsPath, ext);
+        for (const file of files) {
+          if (path.basename(file) === shaderName) {
+            return file;
+          }
+        }
+      }
+      
+      // Try without extension
+      const files = await this.findShaderFiles(this.unityProject!.assetsPath, ext);
+      for (const file of files) {
+        const fileName = path.basename(file, ext);
+        if (fileName === shaderName) {
+          return file;
+        }
+      }
+    }
+    
+    return null;
+  }
+
   async listShaders(): Promise<CallToolResult> {
     this.ensureProjectSet();
 

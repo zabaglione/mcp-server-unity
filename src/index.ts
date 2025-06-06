@@ -176,6 +176,14 @@ class UnityMCPServer {
           },
         },
         {
+          name: 'asset_list_materials',
+          description: 'List all materials in the Unity project',
+          inputSchema: {
+            type: 'object',
+            properties: {},
+          },
+        },
+        {
           name: 'asset_list_all',
           description: 'List assets in the Unity project',
           inputSchema: {
@@ -621,6 +629,74 @@ class UnityMCPServer {
           },
         },
         {
+          name: 'asset_update_shader',
+          description: 'Update content of an existing shader',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              shaderName: {
+                type: 'string',
+                description: 'Name of the shader file',
+              },
+              content: {
+                type: 'string',
+                description: 'New shader content',
+              },
+            },
+            required: ['shaderName', 'content'],
+          },
+        },
+        {
+          name: 'asset_read_shader',
+          description: 'Read shader content',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              shaderName: {
+                type: 'string',
+                description: 'Name of the shader file',
+              },
+            },
+            required: ['shaderName'],
+          },
+        },
+        {
+          name: 'asset_update_material',
+          description: 'Update complete material file content',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              materialName: {
+                type: 'string',
+                description: 'Name of the material file',
+              },
+              content: {
+                type: 'string',
+                description: 'New material content (YAML format)',
+              },
+            },
+            required: ['materialName', 'content'],
+          },
+        },
+        {
+          name: 'asset_clone_material',
+          description: 'Clone a material with a new name',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              sourceMaterialName: {
+                type: 'string',
+                description: 'Name of the source material',
+              },
+              targetMaterialName: {
+                type: 'string',
+                description: 'Name for the cloned material',
+              },
+            },
+            required: ['sourceMaterialName', 'targetMaterialName'],
+          },
+        },
+        {
           name: 'asset_update_script',
           description: 'Update content of an existing C# script',
           inputSchema: {
@@ -971,6 +1047,33 @@ class UnityMCPServer {
             return await this.services.materialService.createMaterialWithShader(
               args.materialName,
               args.shaderName
+            );
+            
+          case 'asset_update_shader':
+            if (!args || typeof args.shaderName !== 'string' || typeof args.content !== 'string') {
+              throw new McpError(ErrorCode.InvalidParams, 'shaderName and content are required');
+            }
+            return await this.services.shaderService.updateShader(args.shaderName, args.content);
+            
+          case 'asset_read_shader':
+            if (!args || typeof args.shaderName !== 'string') {
+              throw new McpError(ErrorCode.InvalidParams, 'shaderName is required');
+            }
+            return await this.services.shaderService.readShader(args.shaderName);
+            
+          case 'asset_update_material':
+            if (!args || typeof args.materialName !== 'string' || typeof args.content !== 'string') {
+              throw new McpError(ErrorCode.InvalidParams, 'materialName and content are required');
+            }
+            return await this.services.materialService.updateMaterial(args.materialName, args.content);
+            
+          case 'asset_clone_material':
+            if (!args || typeof args.sourceMaterialName !== 'string' || typeof args.targetMaterialName !== 'string') {
+              throw new McpError(ErrorCode.InvalidParams, 'sourceMaterialName and targetMaterialName are required');
+            }
+            return await this.services.materialService.cloneMaterial(
+              args.sourceMaterialName,
+              args.targetMaterialName
             );
 
           case 'asset_update_script':
