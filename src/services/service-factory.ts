@@ -5,9 +5,13 @@ import { AssetService } from './asset-service.js';
 import { BuildService } from './build-service.js';
 import { ShaderService } from './shader-service.js';
 import { EditorScriptService } from './editor-script-service.js';
-import { ProBuilderService } from './probuilder-service.js';
 import { UnityRefreshService } from './unity-refresh-service.js';
-import { PackageService } from './package-service.js';
+import { UnityDiagnosticsService } from './unity-diagnostics-service.js';
+import { AIAutomationService } from './ai-automation-service.js';
+import { GameSystemService } from './game-system-service.js';
+import { MaterialService } from './material-service.js';
+import { CodeAnalysisService } from './code-analysis-service.js';
+import { CompilationService } from './compilation-service.js';
 
 export interface Services {
   projectService: ProjectService;
@@ -16,9 +20,13 @@ export interface Services {
   buildService: BuildService;
   shaderService: ShaderService;
   editorScriptService: EditorScriptService;
-  proBuilderService: ProBuilderService;
   refreshService: UnityRefreshService;
-  packageService: PackageService;
+  diagnosticsService: UnityDiagnosticsService;
+  aiAutomationService: AIAutomationService;
+  gameSystemService: GameSystemService;
+  materialService: MaterialService;
+  codeAnalysisService: CodeAnalysisService;
+  compilationService: CompilationService;
 }
 
 export class ServiceFactory {
@@ -29,9 +37,13 @@ export class ServiceFactory {
     const buildService = new BuildService(logger);
     const shaderService = new ShaderService(logger);
     const editorScriptService = new EditorScriptService(logger);
-    const proBuilderService = new ProBuilderService(logger);
     const refreshService = new UnityRefreshService(logger);
-    const packageService = new PackageService(logger);
+    const diagnosticsService = new UnityDiagnosticsService(logger);
+    const aiAutomationService = new AIAutomationService(logger);
+    const gameSystemService = new GameSystemService(logger);
+    const materialService = new MaterialService(logger);
+    const codeAnalysisService = new CodeAnalysisService(logger);
+    const compilationService = new CompilationService(logger);
 
     return {
       projectService,
@@ -40,16 +52,17 @@ export class ServiceFactory {
       buildService,
       shaderService,
       editorScriptService,
-      proBuilderService,
       refreshService,
-      packageService,
+      diagnosticsService,
+      aiAutomationService,
+      gameSystemService,
+      materialService,
+      codeAnalysisService,
+      compilationService,
     };
   }
 
   static connectServices(services: Services): void {
-    // Connect refresh service to package service
-    services.packageService.setRefreshService(services.refreshService);
-    
     // When project is set, update all other services
     const originalSetProject = services.projectService.setProject.bind(services.projectService);
     
@@ -63,9 +76,13 @@ export class ServiceFactory {
         services.buildService.setUnityProject(project);
         services.shaderService.setUnityProject(project);
         services.editorScriptService.setUnityProject(project);
-        services.proBuilderService.setUnityProject(project);
         services.refreshService.setUnityProject(project);
-        services.packageService.setUnityProject(project);
+        services.diagnosticsService.setUnityProject(project);
+        services.aiAutomationService.setUnityProject(project);
+        services.gameSystemService.setUnityProject(project);
+        services.materialService.setUnityProject(project);
+        services.codeAnalysisService.setUnityProject(project);
+        services.compilationService.setUnityProject(project);
       }
       
       return result;

@@ -56,20 +56,74 @@ export class AssetService extends BaseService {
 
     const materialFileName = this.validator.normalizeFileName(materialName, '.mat');
     const materialPath = path.join(materialsPath, materialFileName);
-    const materialTemplate = getMaterialTemplate(materialName);
+    
+    // Detect render pipeline
+    const renderPipeline = await this.detectRenderPipeline();
+    const materialTemplate = getMaterialTemplate(materialName, renderPipeline);
 
     await fs.writeFile(materialPath, materialTemplate, 'utf-8');
 
-    this.logger.info(`Material created: ${materialPath}`);
+    this.logger.info(`Material created: ${materialPath} for ${renderPipeline}`);
 
     return {
       content: [
         {
           type: 'text',
-          text: `Material created: ${path.relative(this.unityProject!.projectPath, materialPath)}`,
+          text: `Material created: ${path.relative(this.unityProject!.projectPath, materialPath)}\n` +
+                `Render Pipeline: ${renderPipeline}`,
         },
       ],
     };
+  }
+
+  private async detectRenderPipeline(): Promise<string> {
+    try {
+      const graphicsSettingsPath = path.join(
+        this.unityProject!.projectPath,
+        'ProjectSettings',
+        'GraphicsSettings.asset'
+      );
+      
+      const content = await fs.readFile(graphicsSettingsPath, 'utf-8');
+      
+      // Check if a custom render pipeline is set
+      if (content.includes('m_CustomRenderPipeline:') && !content.includes('m_CustomRenderPipeline: {fileID: 0}')) {
+        // Custom pipeline is set, determine which one
+        
+        // Check for URP in package cache
+        const packageCachePath = path.join(this.unityProject!.projectPath, 'Library', 'PackageCache');
+        try {
+          const packages = await fs.readdir(packageCachePath);
+          if (packages.some(pkg => pkg.includes('com.unity.render-pipelines.universal'))) {
+            return 'URP';
+          } else if (packages.some(pkg => pkg.includes('com.unity.render-pipelines.high-definition'))) {
+            return 'HDRP';
+          }
+        } catch {
+          // PackageCache might not exist
+        }
+        
+        // Check for URP/HDRP assets in Settings folder
+        const settingsPath = path.join(this.unityProject!.assetsPath, 'Settings');
+        try {
+          const files = await fs.readdir(settingsPath);
+          if (files.some(file => file.includes('UniversalRP') || file.includes('URP'))) {
+            return 'URP';
+          } else if (files.some(file => file.includes('HDRenderPipeline') || file.includes('HDRP'))) {
+            return 'HDRP';
+          }
+        } catch {
+          // Settings folder might not exist
+        }
+        
+        // If we found a custom pipeline but can't determine which, assume URP
+        return 'URP';
+      }
+      
+      return 'Built-in';
+    } catch {
+      return 'Built-in';
+    }
   }
 
   async listAssets(assetType: string = 'all'): Promise<CallToolResult> {

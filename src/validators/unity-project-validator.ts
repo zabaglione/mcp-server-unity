@@ -20,6 +20,9 @@ export class UnityProjectValidator {
   }
 
   normalizeFileName(fileName: string, extension: string): string {
+    if (!fileName || fileName.trim() === '') {
+      throw new Error('File name cannot be empty');
+    }
     return fileName.endsWith(extension) ? fileName : `${fileName}${extension}`;
   }
 

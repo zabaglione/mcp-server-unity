@@ -1,74 +1,55 @@
-# MCP Server for Unity
+# Unity MCP Server
 
-A Model Context Protocol (MCP) server that enables Claude to interact directly with Unity projects, providing tools for script creation, asset management, and project building.
+AI-driven Unity development server supporting both Claude Desktop (stdio) and HTTP API for streamable communication, real-time updates, and intelligent automation.
 
 ## Features
 
-### Core Functionality
-- **Project Management**: Set and validate Unity project paths
-- **Script Operations**: Create, read, and list C# scripts with folder organization
-- **Asset Creation**: Generate Unity scenes, materials, and prefabs
-- **Asset Management**: List and filter project assets by type
-- **Project Information**: Get Unity version and project statistics
+### 📦 Core Features
+- **Project Management**: Set up and manage Unity projects with automatic validation
+- **Asset Creation**: Create scripts, materials, shaders, and scenes
+- **Asset Management**: Read, list, and update Unity assets
+- **Build Automation**: Multi-platform builds with custom settings
+- **Render Pipeline Detection**: Automatic detection of Built-in, URP, or HDRP
 
-### Advanced Features
-- **Shader Support**: Create shaders for Built-in, URP, and HDRP render pipelines
-- **Shader Graph**: Generate visual shader graphs for URP and HDRP
-- **Editor Extensions**: Create custom editor windows, inspectors, property drawers, and menu items
-- **ProBuilder Integration**: Create 3D models and procedural meshes with ProBuilder API
-- **Runtime Mesh Generation**: Generate and modify meshes dynamically at runtime
+### 🔧 Material Management
+- **Material Creation**: Auto-detects render pipeline for correct shader selection
+- **Shader Updates**: Change material shaders with GUID management
+- **Property Editing**: Update colors, floats, textures, and vectors
+- **Batch Conversion**: Convert multiple materials to different shaders
+- **Material Reading**: Inspect material properties and shader information
 
-### Automation & Efficiency
-- **Automatic Unity Refresh**: Trigger asset database refresh and script recompilation
-- **Batch Operations**: Queue multiple file operations for efficient single refresh
-- **Build Automation**: Build Unity projects from command line for multiple platforms
-- **Package Management**: Search, install, and remove Unity packages with smart search
-- **File System Watcher**: Real-time monitoring for automatic Unity synchronization
+### 📝 Code Management
+- **Script Creation**: Create C# scripts with proper namespace structure
+- **Script Updates**: Update existing scripts with full content replacement
+- **Code Analysis**: Diff comparison, duplicate class detection
+- **Namespace Management**: Auto-suggest and apply namespaces based on file location
+- **Compilation Monitoring**: Real-time compilation error tracking
 
-### Architecture Benefits
-- **Service-Oriented Architecture**: Modular design for easy extension and maintenance
-- **Dependency Injection**: Flexible service composition and testing
-- **Comprehensive Validation**: Path traversal protection and input sanitization
-- **Template System**: Consistent code generation with customizable templates
-- **Error Handling**: Detailed error messages with recovery suggestions
-
-## Requirements
-
-- Node.js 18.x or higher
-- Unity 2021.3 LTS or newer (for build functionality)
-- Claude Desktop
+### 🛠️ Advanced Features
+- **Editor Extensions**: Custom windows, inspectors, property drawers
+- **Shader Creation**: Built-in, URP, HDRP, Shader Graph support
+- **Unity Refresh**: Automatic asset database refresh with batch operations
+- **Diagnostics**: Compilation errors, asset validation, editor log analysis
 
 ## Installation
 
-### Quick Setup (Unix/Linux/macOS)
-
 ```bash
-git clone https://github.com/zabaglione/mcp-server-unity.git
-cd mcp-server-unity
-./setup.sh
-```
+# Clone the repository
+git clone https://github.com/zabaglione/unity-mcp-server.git
+cd unity-mcp-server
 
-### Manual Setup
-
-1. Clone the repository:
-```bash
-git clone https://github.com/zabaglione/mcp-server-unity.git
-cd mcp-server-unity
-```
-
-2. Install dependencies:
-```bash
+# Install dependencies
 npm install
-```
 
-3. Build the project:
-```bash
+# Build the project
 npm run build
 ```
 
-## Configuration
+## Usage Options
 
-Add the following to your Claude Desktop configuration file:
+### Option 1: Claude Desktop (MCP stdio)
+
+Add to your Claude Desktop configuration file:
 
 **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
 **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
@@ -78,90 +59,143 @@ Add the following to your Claude Desktop configuration file:
   "mcpServers": {
     "mcp-server-unity": {
       "command": "node",
-      "args": ["/absolute/path/to/mcp-server-unity/build/index.js"]
+      "args": ["/absolute/path/to/unity-mcp/build/index.js"]
     }
   }
 }
 ```
 
-Replace `/absolute/path/to/mcp-server-unity` with the actual path to your installation.
+Then use natural language in Claude Desktop:
+- "Set Unity project to /path/to/project"
+- "Create a 2D platformer with inventory system"
+- "Generate a player controller with double jump"
+
+### Option 2: HTTP Server
+
+1. **Start the HTTP server:**
+```bash
+npm run start:http
+# or specify a custom port
+PORT=8080 npm run start:http
+```
+
+2. **Set up your Unity project:**
+```bash
+curl -X POST http://localhost:3000/api/project/setup \
+  -H "Content-Type: application/json" \
+  -d '{"projectPath": "/path/to/your/unity/project"}'
+```
+
+3. **Analyze requirements with AI:**
+```bash
+curl -X POST http://localhost:3000/api/ai/analyze \
+  -H "Content-Type: application/json" \
+  -d '{"description": "Create a 2D platformer with inventory system"}'
+```
+
+## API Documentation
+
+See [HTTP_API.md](HTTP_API.md) for complete API documentation.
+
+### Key Endpoints
+
+- `GET /health` - Health check
+- `GET /api-docs` - API documentation
+- `POST /api/project/setup` - Configure Unity project
+- `POST /api/ai/analyze` - Analyze requirements
+- `POST /api/system/player-controller` - Generate player controller
+- `POST /api/asset/create-script` - Create C# scripts
+- `POST /api/batch` - Execute batch operations
 
 ## Usage Examples
 
-Claude Desktop can understand natural language requests and convert them to the appropriate MCP tool commands. Here are some examples:
-
-### Project Setup
-```
-"Set Unity project to /Users/me/MyGame"
-"Use my Unity project at /path/to/project"
-"Initialize Unity project path: /Users/john/UnityProjects/MyAwesomeGame"
-```
-
-### Creating Scripts
-```
-"Create a PlayerController script with basic movement"
-"Make a new C# script called EnemyAI in the Enemies folder"
-"Generate a GameManager singleton script"
+### Create a Player Controller
+```javascript
+const response = await fetch('http://localhost:3000/api/system/player-controller', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    gameType: 'platformer',
+    requirements: ['doubleJump', 'wallJump', 'dash']
+  })
+});
 ```
 
-### Reading Scripts
-```
-"Show me the PlayerController script"
-"Read the GameManager.cs file"
-"What's in the EnemyAI script?"
-```
-
-### Creating Assets
-```
-"Create a new scene called MainMenu"
-"Make a material named PlayerMaterial"
-"Create a URP shader called WaterShader"
-"Generate a Shader Graph for HDRP called CustomLit"
-```
-
-### Package Management
-```
-"Search for ProBuilder packages"
-"What 2D packages are available?"
-"Find packages for render pipelines"
-"Install ProBuilder"
-"Install TextMeshPro version 3.0.6"
-"Remove ProBuilder package"
-"Show installed packages"
-"Install ProBuilder, TextMeshPro, and Cinemachine all at once"
+### Generate Project Structure
+```javascript
+const response = await fetch('http://localhost:3000/api/project/create-structure', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    projectType: '2D_Platformer',
+    customStructure: {
+      folders: ['Scripts/Player', 'Scripts/Enemy', 'Scripts/UI']
+    }
+  })
+});
 ```
 
-### Editor Extensions
-```
-"Create a custom editor window for level design"
-"Make a custom inspector for MyComponent"
-"Generate a property drawer for RangeAttribute"
+## Development
+
+```bash
+# Run in development mode
+npm run dev
+
+# Run tests
+npm test
+
+# Clean build
+npm run clean
 ```
 
-### ProBuilder Operations
-```
-"Create a ProBuilder cube prefab"
-"Generate a mesh generator script"
-"Make a ProBuilder shape creator"
-```
+## Configuration
 
-### Build Operations
-```
-"Build the project for Windows"
-"Create a macOS build in /Users/me/Builds"
-"Build for WebGL to /path/to/output"
-```
+### Environment Variables
+- `PORT` - HTTP server port (default: 3000)
+- `UNITY_PATH` - Path to Unity executable (auto-detected if not set)
 
-### Utility Operations
-```
-"List all scripts in the project"
-"Show all shaders"
-"Get project information"
-"Refresh Unity"
-"Start batch operations"
-```
+### Supported Platforms
+- macOS
+- Windows
+- Linux
 
-## Tool Reference
+### Unity Versions
+- Unity 2021.3 LTS and newer
+- Unity 6000.x (Unity 6)
+
+## Architecture
+
+The server uses a modular service architecture:
+
+- **AI Core** - Natural language processing and planning
+- **Service Layer** - Unity project operations
+- **HTTP API** - RESTful endpoints
+- **Template System** - Code generation templates
+
+## Requirements
+
+- Node.js 18.x or higher
+- Unity 2021.3 LTS or newer
+- npm or yarn
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines.
+
+## License
+
+MIT License - see [LICENSE](LICENSE) for details.
+
+## Acknowledgments
+
+Built with:
+- Express.js for HTTP server
+- TypeScript for type safety
+- Unity Editor integration
+
+## Support
+
+For issues and feature requests, please use the [GitHub issue tracker](https://github.com/zabaglione/unity-mcp-server/issues).
 
 For direct tool usage, here are the available MCP tools:
 
@@ -183,17 +217,23 @@ For direct tool usage, here are the available MCP tools:
 - `editor_create_script` - Create editor scripts
 - `editor_list_scripts` - List editor scripts
 
-### ProBuilder/Modeling
-- `modeling_create_script` - Create ProBuilder scripts
-- `modeling_create_prefab` - Create ProBuilder prefabs
-- `modeling_list_scripts` - List ProBuilder scripts
+### Material Management
+- `asset_update_material_shader` - Change material shader
+- `asset_update_material_properties` - Update material properties
+- `asset_read_material` - Read material properties
+- `asset_batch_convert_materials` - Batch convert materials
+- `asset_update_script` - Update script content
 
-### Package Management
-- `package_search` - Search for packages
-- `package_install` - Install a package
-- `package_install_multiple` - Install multiple packages
-- `package_remove` - Remove a package
-- `package_list` - List installed packages
+### Code Analysis
+- `code_analyze_diff` - Get detailed diff between files
+- `code_detect_duplicates` - Detect duplicate class names
+- `code_suggest_namespace` - Suggest namespace for file
+- `code_apply_namespace` - Apply namespace to script
+
+### Compilation Tools
+- `compile_get_errors` - Get compilation errors with context
+- `compile_get_status` - Get current compilation status
+- `compile_install_helper` - Install compilation monitoring helper
 
 ### Build Operations
 - `build_execute_project` - Build Unity project
@@ -237,8 +277,9 @@ mcp-server-unity/
 │   │   ├── asset-service.ts      # Asset creation
 │   │   ├── shader-service.ts     # Shader management
 │   │   ├── editor-script-service.ts  # Editor extensions
-│   │   ├── probuilder-service.ts # ProBuilder integration
-│   │   ├── package-service.ts    # Package management
+│   │   ├── material-service.ts   # Material management
+│   │   ├── code-analysis-service.ts  # Code analysis tools
+│   │   ├── compilation-service.ts    # Compilation monitoring
 │   │   ├── build-service.ts      # Build automation
 │   │   └── unity-refresh-service.ts  # Unity refresh system
 │   ├── templates/                # Code generation templates

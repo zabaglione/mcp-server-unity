@@ -1,6 +1,5 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { spawn } from 'child_process';
 
 export interface TestResult {
   testCase: string;
@@ -77,10 +76,10 @@ public class PlayerController : MonoBehaviour
     }
   }
   
-  static async runMCPCommand(command: string, args: any): Promise<any> {
+  static async runMCPCommand(_command: string, _args: any): Promise<any> {
     // This would integrate with the actual MCP server
     // For now, it's a placeholder
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       // Simulate MCP command execution
       setTimeout(() => {
         resolve({
@@ -118,7 +117,6 @@ public class PlayerController : MonoBehaviour
   
   static formatTestResults(results: TestResult[]): string {
     const passed = results.filter(r => r.passed).length;
-    const failed = results.filter(r => !r.passed).length;
     const total = results.length;
     
     let output = `\nTest Results: ${passed}/${total} passed\n`;

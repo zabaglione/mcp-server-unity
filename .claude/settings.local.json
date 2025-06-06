@@ -1,0 +1,43 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir:*)",
+      "Bash(chmod:*)",
+      "Bash(npm run build:*)",
+      "Bash(./setup.sh:*)",
+      "Bash(grep:*)",
+      "Bash(mv:*)",
+      "Bash(touch:*)",
+      "Bash(find:*)",
+      "Bash(rm:*)",
+      "Bash(ls:*)",
+      "Bash(tree:*)",
+      "Bash(true)",
+      "Bash(node:*)",
+      "Bash(git init:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git remote add:*)",
+      "Bash(git branch:*)",
+      "Bash(git push:*)",
+      "Bash(gh repo view:*)",
+      "Bash(kill:*)",
+      "Bash(npm install)",
+      "Bash(npm install:*)",
+      "Bash(npm run clean:*)",
+      "Bash(timeout 5 npm run start:http:*)",
+      "Bash(# HTTPサーバーをバックグラウンドで起動\nnpm run start:http > /tmp/http-server.log 2>&1 &\nHTTP_PID=$!\necho \"HTTP Server PID: $HTTP_PID\"\nsleep 2\n\n# ヘルスチェック\necho \"=== Health Check ===\"\ncurl -s http://localhost:3000/health | jq .\n\n# APIドキュメント\necho -e \"\\n=== API Documentation ===\"\ncurl -s http://localhost:3000/api-docs | jq .\n\n# サーバーを停止\nkill $HTTP_PID 2>/dev/null || true)",
+      "Bash(# HTTPサーバーをバックグラウンドで起動\nnpm run start:http > /tmp/http-server.log 2>&1 &\nHTTP_PID=$!\nsleep 2\n\n# 1. プロジェクトセットアップのテスト\necho \"=== Project Setup Test ===\"\ncurl -s -X POST http://localhost:3000/api/project/setup \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"projectPath\": \"/Users/zabaglione/Unity/MCPTest\"}' | jq .\n\n# 2. AI要件分析のテスト\necho -e \"\\n=== AI Requirements Analysis Test ===\"\ncurl -s -X POST http://localhost:3000/api/ai/analyze \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"description\": \"Create a 2D platformer game with inventory system and combat\"}' | jq .\n\n# 3. プロジェクト情報の取得\necho -e \"\\n=== Project Info Test ===\"\ncurl -s http://localhost:3000/api/project/info | jq .\n\n# サーバーを停止\nkill $HTTP_PID 2>/dev/null || true)",
+      "Bash(# 既存のログファイルを削除\nrm -f /tmp/http-server.log\n\n# HTTPサーバーをバックグラウンドで起動\n(npm run start:http 2>&1 | tee /tmp/http-server-output.log) &\nHTTP_PID=$!\nsleep 3\n\n# 1. プロジェクトセットアップのテスト\necho \"=== Project Setup Test ===\"\ncurl -s -X POST http://localhost:3000/api/project/setup \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"projectPath\": \"/Users/zabaglione/Unity/MCPTest\"}' | jq . || echo \"Failed to parse JSON\"\n\n# HTTPサーバーのログを確認\necho -e \"\\n=== Server Logs ===\"\ntail -10 /tmp/http-server-output.log\n\n# プロセスを停止\npkill -f \"node build/start-http.js\" 2>/dev/null || true)",
+      "Bash(# HTTPサーバーをバックグラウンドで起動\n(npm run start:http 2>&1) &\nHTTP_PID=$!\nsleep 3\n\n# 2. AI要件分析のテスト\necho \"=== AI Requirements Analysis Test ===\"\ncurl -s -X POST http://localhost:3000/api/ai/analyze \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"description\": \"Create a 2D platformer game with inventory system and combat\"}' | jq .\n\necho -e \"\\n=== Game System Creation Test ===\"\n# 3. プレイヤーコントローラー作成のテスト\ncurl -s -X POST http://localhost:3000/api/system/player-controller \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"gameType\": \"platformer\", \"requirements\": [\"doubleJump\", \"wallJump\"]}' | jq .\n\n# プロセスを停止\npkill -f \"node build/start-http.js\" 2>/dev/null || true)",
+      "Bash(# HTTPサーバーをバックグラウンドで起動\n(npm run start:http 2>&1) &\nHTTP_PID=$!\nsleep 3\n\n# 1. まずプロジェクトをセットアップ\necho \"=== Setting up Unity Project ===\"\ncurl -s -X POST http://localhost:3000/api/project/setup \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"projectPath\": \"/Users/zabaglione/Unity/MCPTest\"}' | jq .\n\n# 2. プロジェクト情報を確認\necho -e \"\\n=== Project Info ===\"\ncurl -s http://localhost:3000/api/project/info | jq .\n\n# 3. バッチ操作のテスト\necho -e \"\\n=== Batch Operations Test ===\"\ncurl -s -X POST http://localhost:3000/api/batch \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\n    \"operations\": [\n      {\n        \"action\": \"scriptService.listScripts\",\n        \"params\": []\n      },\n      {\n        \"action\": \"packageService.listInstalledPackages\", \n        \"params\": []\n      }\n    ]\n  }' | jq .\n\n# プロセスを停止\npkill -f \"node build/start-http.js\" 2>/dev/null || true)",
+      "Bash(# stdio MCPサーバーのテスト\necho '{\"jsonrpc\":\"2.0\",\"method\":\"tools/list\",\"params\":{},\"id\":1}' | npm run start 2>/dev/null | grep -A 50 '\"tools\"' | head -20)",
+      "Bash(npm run test:integration:*)",
+      "Bash(# HTTPサーバーをバックグラウンドで起動してテスト\n(npm run start:http 2>&1) &\nHTTP_PID=$!\nsleep 3\n\n# 簡潔なテストを実行\necho \"=== Testing AI Features ===\"\n\n# 1. Health check\necho -e \"\\n1. Health Check:\"\ncurl -s http://localhost:3000/health | jq .status\n\n# 2. Set project\necho -e \"\\n2. Setting Project:\"\ncurl -s -X POST http://localhost:3000/api/project/setup \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"projectPath\": \"/Users/zabaglione/Unity/MCPTest\"}' | jq '.content[0].text'\n\n# 3. AI Analysis\necho -e \"\\n3. AI Requirements Analysis:\"\ncurl -s -X POST http://localhost:3000/api/ai/analyze \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"description\": \"2D platformer with combat\"}' | jq '.content[0].text' | head -10\n\n# 4. Create Player Controller\necho -e \"\\n4. Create Player Controller:\"\ncurl -s -X POST http://localhost:3000/api/system/player-controller \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"gameType\": \"platformer\", \"requirements\": [\"doubleJump\"]}' | jq '.content[0].text' | head -5\n\n# 終了\npkill -f \"node build/start-http.js\" 2>/dev/null || true\necho -e \"\\n✅ All tests completed!\")",
+      "Bash(# HTTPサーバーをバックグラウンドで起動\n(npm run start:http 2>&1) &\nHTTP_PID=$!\nsleep 3\n\n# 簡単なテストを実行\necho \"=== Material Features Test ===\"\n\n# 1. Set project\necho -e \"\\n1. Setting project:\"\ncurl -s -X POST http://localhost:3000/api/project/setup \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"projectPath\": \"/Users/zabaglione/Unity/MCPTest\"}' | jq '.content[0].text'\n\n# 2. Create material\necho -e \"\\n2. Creating material:\"\ncurl -s -X POST http://localhost:3000/api/asset/create-material \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"materialName\": \"TestMaterial\"}' | jq '.content[0].text'\n\n# 3. Update shader\necho -e \"\\n3. Updating shader:\"\ncurl -s -X PUT http://localhost:3000/api/material/shader \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"materialName\": \"TestMaterial\", \"shaderName\": \"Universal Render Pipeline/Lit\"}' | jq '.content[0].text' | head -5\n\n# 4. Update properties\necho -e \"\\n4. Updating properties:\"\ncurl -s -X PUT http://localhost:3000/api/material/properties \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\n    \"materialName\": \"TestMaterial\",\n    \"properties\": {\n      \"colors\": {\"_BaseColor\": [0.2, 0.8, 1.0, 1.0]},\n      \"floats\": {\"_Metallic\": 0.3, \"_Smoothness\": 0.8}\n    }\n  }' | jq '.content[0].text' | head -5\n\n# 終了\npkill -f \"node build/start-http.js\" 2>/dev/null || true\necho -e \"\\n✅ Test completed!\")",
+      "Bash(npm run start:http:*)",
+      "Bash(pkill:*)"
+    ],
+    "deny": []
+  }
+}

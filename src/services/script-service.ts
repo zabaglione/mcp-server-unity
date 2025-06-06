@@ -6,13 +6,16 @@ import { BaseService } from './base-service.js';
 import { UnityProjectValidator } from '../validators/unity-project-validator.js';
 import { findFiles, ensureDirectory } from '../utils/file-utils.js';
 import { FileNotFoundError } from '../errors/index.js';
+import { MetaFileManager } from '../utils/meta-file-manager.js';
 
 export class ScriptService extends BaseService {
   private validator: UnityProjectValidator;
+  private metaFileManager: MetaFileManager;
 
   constructor(logger: Logger) {
     super(logger);
     this.validator = new UnityProjectValidator();
+    this.metaFileManager = new MetaFileManager(logger);
   }
 
   async createScript(
@@ -33,11 +36,18 @@ export class ScriptService extends BaseService {
 
     this.logger.info(`Script created: ${filePath}`);
 
+    // Generate meta file for the script
+    const metaGenerated = await this.metaFileManager.generateMetaFile(filePath);
+    if (!metaGenerated) {
+      this.logger.info(`Warning: Failed to generate meta file for: ${filePath}`);
+    }
+
     return {
       content: [
         {
           type: 'text',
-          text: `Script created: ${path.relative(this.unityProject!.projectPath, filePath)}`,
+          text: `Script created: ${path.relative(this.unityProject!.projectPath, filePath)}\n` +
+                `Meta file generated: ${metaGenerated ? 'Yes' : 'No'}`,
         },
       ],
     };
@@ -85,6 +95,39 @@ export class ScriptService extends BaseService {
         {
           type: 'text',
           text: `Found ${scripts.length} scripts:\n${relativePaths.join('\n')}`,
+        },
+      ],
+    };
+  }
+
+  async updateScript(
+    fileName: string,
+    content: string
+  ): Promise<CallToolResult> {
+    this.ensureProjectSet();
+
+    const scriptFiles = await findFiles({
+      directory: this.unityProject!.assetsPath,
+      fileName,
+      extension: '.cs'
+    });
+    
+    if (scriptFiles.length === 0) {
+      throw new FileNotFoundError(fileName, 'Script');
+    }
+
+    const scriptPath = scriptFiles[0];
+
+    // Write new content
+    await fs.writeFile(scriptPath, content, 'utf-8');
+    this.logger.info(`Updated script: ${scriptPath}`);
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `Script updated: ${path.relative(this.unityProject!.projectPath, scriptPath)}\n\n` +
+                `Note: Unity will need to recompile the script.`,
         },
       ],
     };
