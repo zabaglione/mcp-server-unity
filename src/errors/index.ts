@@ -25,3 +25,38 @@ export class BuildError extends Error {
     this.name = 'BuildError';
   }
 }
+
+export class InvalidParameterError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'InvalidParameterError';
+  }
+}
+
+export class FileOperationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'FileOperationError';
+  }
+}
+
+export class ShaderCompilationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ShaderCompilationError';
+  }
+}
+
+export class MaterialError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'MaterialError';
+  }
+}
+
+export class AssetNotFoundError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'AssetNotFoundError';
+  }
+}

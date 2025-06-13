@@ -12,6 +12,7 @@ import { GameSystemService } from './game-system-service.js';
 import { MaterialService } from './material-service.js';
 import { CodeAnalysisService } from './code-analysis-service.js';
 import { CompilationService } from './compilation-service.js';
+import { UIToolkitService } from './ui-toolkit-service.js';
 
 export interface Services {
   projectService: ProjectService;
@@ -27,6 +28,7 @@ export interface Services {
   materialService: MaterialService;
   codeAnalysisService: CodeAnalysisService;
   compilationService: CompilationService;
+  uiToolkitService: UIToolkitService;
 }
 
 export class ServiceFactory {
@@ -44,6 +46,7 @@ export class ServiceFactory {
     const materialService = new MaterialService(logger);
     const codeAnalysisService = new CodeAnalysisService(logger);
     const compilationService = new CompilationService(logger);
+    const uiToolkitService = new UIToolkitService(logger);
 
     // Set shader service reference in material service
     materialService.setShaderService(shaderService);
@@ -62,6 +65,7 @@ export class ServiceFactory {
       materialService,
       codeAnalysisService,
       compilationService,
+      uiToolkitService,
     };
   }
 
@@ -86,6 +90,7 @@ export class ServiceFactory {
         services.materialService.setUnityProject(project);
         services.codeAnalysisService.setUnityProject(project);
         services.compilationService.setUnityProject(project);
+        services.uiToolkitService.setUnityProject(project);
         
         // Re-set shader service reference after project update
         services.materialService.setShaderService(services.shaderService);

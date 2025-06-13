@@ -804,6 +804,155 @@ class UnityMCPServer {
             properties: {},
           },
         },
+        // UI Toolkit Tools
+        {
+          name: 'ui_create_uxml',
+          description: 'Create a new UXML file for Unity UI Toolkit',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              fileName: {
+                type: 'string',
+                description: 'Name of the UXML file (without .uxml extension)',
+              },
+              templateType: {
+                type: 'string',
+                description: 'Type of UXML template to create',
+                enum: ['window', 'document', 'component', 'custom'],
+                default: 'document',
+              },
+              customContent: {
+                type: 'string',
+                description: 'Custom UXML content (optional)',
+              },
+            },
+            required: ['fileName'],
+          },
+        },
+        {
+          name: 'ui_create_uss',
+          description: 'Create a new USS file for Unity UI Toolkit styling',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              fileName: {
+                type: 'string',
+                description: 'Name of the USS file (without .uss extension)',
+              },
+              templateType: {
+                type: 'string',
+                description: 'Type of USS template to create',
+                enum: ['theme', 'component', 'utilities', 'custom'],
+                default: 'component',
+              },
+              customContent: {
+                type: 'string',
+                description: 'Custom USS content (optional)',
+              },
+            },
+            required: ['fileName'],
+          },
+        },
+        {
+          name: 'ui_update_uxml',
+          description: 'Update content of an existing UXML file',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              fileName: {
+                type: 'string',
+                description: 'Name of the UXML file',
+              },
+              content: {
+                type: 'string',
+                description: 'New UXML content',
+              },
+            },
+            required: ['fileName', 'content'],
+          },
+        },
+        {
+          name: 'ui_update_uss',
+          description: 'Update content of an existing USS file',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              fileName: {
+                type: 'string',
+                description: 'Name of the USS file',
+              },
+              content: {
+                type: 'string',
+                description: 'New USS content',
+              },
+            },
+            required: ['fileName', 'content'],
+          },
+        },
+        {
+          name: 'ui_read_uxml',
+          description: 'Read content of a UXML file',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              fileName: {
+                type: 'string',
+                description: 'Name of the UXML file',
+              },
+            },
+            required: ['fileName'],
+          },
+        },
+        {
+          name: 'ui_read_uss',
+          description: 'Read content of a USS file',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              fileName: {
+                type: 'string',
+                description: 'Name of the USS file',
+              },
+            },
+            required: ['fileName'],
+          },
+        },
+        {
+          name: 'ui_list_uxml',
+          description: 'List all UXML files in the project',
+          inputSchema: {
+            type: 'object',
+            properties: {},
+          },
+        },
+        {
+          name: 'ui_list_uss',
+          description: 'List all USS files in the project',
+          inputSchema: {
+            type: 'object',
+            properties: {},
+          },
+        },
+        {
+          name: 'ui_create_component',
+          description: 'Create a complete UI component with UXML, USS, and C# controller',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              componentName: {
+                type: 'string',
+                description: 'Name of the UI component',
+              },
+              componentType: {
+                type: 'string',
+                description: 'Type of component to create',
+                enum: ['button', 'panel', 'list', 'form', 'card', 'modal'],
+                default: 'panel',
+              },
+            },
+            required: ['componentName'],
+          },
+        },
       ],
     }));
 
@@ -1124,6 +1273,72 @@ class UnityMCPServer {
 
           case 'compile_install_helper':
             return await this.services.compilationService.installCompilationHelper();
+
+          // UI Toolkit Tools
+          case 'ui_create_uxml':
+            if (!args || typeof args.fileName !== 'string') {
+              throw new McpError(ErrorCode.InvalidParams, 'fileName is required');
+            }
+            return await this.services.uiToolkitService.createUXML(
+              args.fileName,
+              args.templateType || 'document',
+              args.customContent
+            );
+
+          case 'ui_create_uss':
+            if (!args || typeof args.fileName !== 'string') {
+              throw new McpError(ErrorCode.InvalidParams, 'fileName is required');
+            }
+            return await this.services.uiToolkitService.createUSS(
+              args.fileName,
+              args.templateType || 'component',
+              args.customContent
+            );
+
+          case 'ui_update_uxml':
+            if (!args || typeof args.fileName !== 'string' || typeof args.content !== 'string') {
+              throw new McpError(ErrorCode.InvalidParams, 'fileName and content are required');
+            }
+            return await this.services.uiToolkitService.updateUXML(
+              args.fileName,
+              args.content
+            );
+
+          case 'ui_update_uss':
+            if (!args || typeof args.fileName !== 'string' || typeof args.content !== 'string') {
+              throw new McpError(ErrorCode.InvalidParams, 'fileName and content are required');
+            }
+            return await this.services.uiToolkitService.updateUSS(
+              args.fileName,
+              args.content
+            );
+
+          case 'ui_read_uxml':
+            if (!args || typeof args.fileName !== 'string') {
+              throw new McpError(ErrorCode.InvalidParams, 'fileName is required');
+            }
+            return await this.services.uiToolkitService.readUXML(args.fileName);
+
+          case 'ui_read_uss':
+            if (!args || typeof args.fileName !== 'string') {
+              throw new McpError(ErrorCode.InvalidParams, 'fileName is required');
+            }
+            return await this.services.uiToolkitService.readUSS(args.fileName);
+
+          case 'ui_list_uxml':
+            return await this.services.uiToolkitService.listUXMLFiles();
+
+          case 'ui_list_uss':
+            return await this.services.uiToolkitService.listUSSFiles();
+
+          case 'ui_create_component':
+            if (!args || typeof args.componentName !== 'string') {
+              throw new McpError(ErrorCode.InvalidParams, 'componentName is required');
+            }
+            return await this.services.uiToolkitService.createUIComponent(
+              args.componentName,
+              args.componentType || 'panel'
+            );
 
           default:
             throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${name}`);

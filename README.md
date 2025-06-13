@@ -33,6 +33,13 @@ A Model Context Protocol (MCP) server that enables AI assistants like Claude to 
 - **Unity Refresh**: Automatic asset database refresh with batch operations
 - **Diagnostics**: Compilation errors, asset validation, editor log analysis
 
+### 🎨 UI Toolkit Development
+- **UXML Creation**: Create UI layouts with templates (window, document, component)
+- **USS Styling**: Generate stylesheets with themes, utilities, and component styles
+- **Component System**: Create complete UI components with UXML, USS, and C# controller
+- **File Management**: Read, update, and list UXML/USS files
+- **UI Builder Integration**: Files compatible with Unity's visual UI Builder tool
+
 ## Installation
 
 ```bash
