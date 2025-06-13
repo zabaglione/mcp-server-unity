@@ -3,6 +3,14 @@ import * as path from 'path';
 
 // Mock fs/promises before importing services
 jest.unstable_mockModule('fs/promises', () => ({
+  default: {
+    readFile: jest.fn(),
+    writeFile: jest.fn(),
+    mkdir: jest.fn(),
+    stat: jest.fn(),
+    readdir: jest.fn(),
+    access: jest.fn()
+  },
   readFile: jest.fn(),
   writeFile: jest.fn(),
   mkdir: jest.fn(),

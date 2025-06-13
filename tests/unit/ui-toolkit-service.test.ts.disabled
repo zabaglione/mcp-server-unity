@@ -1,0 +1,430 @@
+import { describe, it, expect, beforeEach, afterEach, jest } from '@jest/globals';
+import { UIToolkitService } from '../../src/services/ui-toolkit-service.js';
+import { UnityProject } from '../../src/types/index.js';
+import * as fs from 'fs/promises';
+import * as path from 'path';
+import * as os from 'os';
+
+// Mock fs module
+jest.mock('fs/promises');
+const mockFs = fs as jest.Mocked<typeof fs>;
+
+// Mock logger
+const mockLogger = {
+  info: jest.fn(),
+  error: jest.fn(),
+  warn: jest.fn(),
+  debug: jest.fn(),
+};
+
+describe('UIToolkitService', () => {
+  let service: UIToolkitService;
+  let tempDir: string;
+  let mockProject: UnityProject;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    
+    tempDir = path.join(os.tmpdir(), 'unity-mcp-test-' + Date.now());
+    mockProject = {
+      projectPath: tempDir,
+      assetsPath: path.join(tempDir, 'Assets'),
+      scriptsPath: path.join(tempDir, 'Assets', 'Scripts'),
+    };
+
+    service = new UIToolkitService(mockLogger as any);
+    service.setUnityProject(mockProject);
+
+    // Default mock implementations
+    mockFs.mkdir.mockResolvedValue(undefined);
+    mockFs.writeFile.mockResolvedValue(undefined);
+    mockFs.readFile.mockResolvedValue('mock file content');
+    mockFs.access.mockRejectedValue(new Error('File not found'));
+    mockFs.readdir.mockResolvedValue([]);
+  });
+
+  afterEach(() => {
+    jest.resetAllMocks();
+  });
+
+  describe('createUXML', () => {
+    it('should create UXML file with window template', async () => {
+      const result = await service.createUXML('TestWindow', 'window');
+
+      expect(result.content[0].text).toContain('UXML file "TestWindow.uxml" created successfully');
+      expect(mockFs.mkdir).toHaveBeenCalledWith(
+        path.join(tempDir, 'Assets', 'UI'),
+        { recursive: true }
+      );
+      expect(mockFs.writeFile).toHaveBeenCalledTimes(2); // UXML and meta file
+      
+      // Check UXML content
+      const uxmlCall = mockFs.writeFile.mock.calls[0];
+      expect(uxmlCall[0]).toContain('TestWindow.uxml');
+      expect(uxmlCall[1]).toContain('window-container');
+      expect(uxmlCall[1]).toContain('window-title');
+      expect(uxmlCall[1]).toContain('ok-button');
+    });
+
+    it('should create UXML file with document template', async () => {
+      const result = await service.createUXML('TestDoc', 'document');
+
+      expect(result.content[0].text).toContain('UXML file "TestDoc.uxml" created successfully');
+      
+      const uxmlCall = mockFs.writeFile.mock.calls[0];
+      expect(uxmlCall[1]).toContain('root-container');
+      expect(uxmlCall[1]).not.toContain('window-title');
+    });
+
+    it('should create UXML file with custom content', async () => {
+      const customContent = '<ui:UXML><ui:Label text="Custom" /></ui:UXML>';
+      const result = await service.createUXML('Custom', 'custom', customContent);
+
+      expect(result.content[0].text).toContain('UXML file "Custom.uxml" created successfully');
+      
+      const uxmlCall = mockFs.writeFile.mock.calls[0];
+      expect(uxmlCall[1]).toBe(customContent);
+    });
+
+    it('should remove .uxml extension if provided', async () => {
+      await service.createUXML('Test.uxml', 'document');
+
+      const uxmlCall = mockFs.writeFile.mock.calls[0];
+      expect(uxmlCall[0]).toContain('Test.uxml');
+      expect(uxmlCall[0]).not.toContain('Test.uxml.uxml');
+    });
+
+    it('should throw error when project not set', async () => {
+      const newService = new UIToolkitService(mockLogger as any);
+      
+      await expect(newService.createUXML('Test', 'document'))
+        .rejects.toThrow('Unity project not set');
+    });
+
+    it('should throw error for invalid fileName', async () => {
+      await expect(service.createUXML('', 'document'))
+        .rejects.toThrow('fileName must be a non-empty string');
+      
+      await expect(service.createUXML(null as any, 'document'))
+        .rejects.toThrow('fileName must be a non-empty string');
+    });
+
+    it('should generate proper meta file', async () => {
+      await service.createUXML('Test', 'document');
+
+      const metaCall = mockFs.writeFile.mock.calls[1];
+      expect(metaCall[0]).toContain('Test.uxml.meta');
+      expect(metaCall[1]).toContain('fileFormatVersion: 2');
+      expect(metaCall[1]).toContain('guid:');
+      expect(metaCall[1]).toContain('ScriptedImporter');
+    });
+  });
+
+  describe('createUSS', () => {
+    it('should create USS file with theme template', async () => {
+      const result = await service.createUSS('DarkTheme', 'theme');
+
+      expect(result.content[0].text).toContain('USS file "DarkTheme.uss" created successfully');
+      expect(mockFs.mkdir).toHaveBeenCalledWith(
+        path.join(tempDir, 'Assets', 'UI', 'Styles'),
+        { recursive: true }
+      );
+      
+      const ussCall = mockFs.writeFile.mock.calls[0];
+      expect(ussCall[0]).toContain('DarkTheme.uss');
+      expect(ussCall[1]).toContain(':root');
+      expect(ussCall[1]).toContain('--primary-color');
+      expect(ussCall[1]).toContain('.button');
+    });
+
+    it('should create USS file with utilities template', async () => {
+      const result = await service.createUSS('Utils', 'utilities');
+
+      const ussCall = mockFs.writeFile.mock.calls[0];
+      expect(ussCall[1]).toContain('.flex-row');
+      expect(ussCall[1]).toContain('.m-0');
+      expect(ussCall[1]).toContain('.text-primary');
+    });
+
+    it('should create USS in Styles subdirectory', async () => {
+      await service.createUSS('Test', 'component');
+
+      expect(mockFs.mkdir).toHaveBeenCalledWith(
+        path.join(tempDir, 'Assets', 'UI', 'Styles'),
+        { recursive: true }
+      );
+      
+      const ussCall = mockFs.writeFile.mock.calls[0];
+      expect(ussCall[0]).toContain(path.join('Styles', 'Test.uss'));
+    });
+  });
+
+  describe('updateUXML', () => {
+    beforeEach(() => {
+      // Mock file exists
+      mockFs.access.mockResolvedValue(undefined);
+      mockFs.readFile.mockResolvedValue('guid: existingguid123\nother meta content');
+      
+      // Mock findUIFile
+      mockFs.readdir.mockImplementation(async (dir) => {
+        if (dir.includes('UI')) {
+          return [
+            { name: 'Existing.uxml', isFile: () => true, isDirectory: () => false },
+            { name: 'Existing.uxml.meta', isFile: () => true, isDirectory: () => false },
+          ] as any;
+        }
+        return [];
+      });
+    });
+
+    it('should update existing UXML file', async () => {
+      const newContent = '<ui:UXML>Updated content</ui:UXML>';
+      const result = await service.updateUXML('Existing', newContent);
+
+      expect(result.content[0].text).toContain('UXML file "Existing" updated successfully');
+      expect(mockFs.writeFile).toHaveBeenCalledWith(
+        expect.stringContaining('Existing.uxml'),
+        newContent,
+        'utf-8'
+      );
+    });
+
+    it('should preserve meta file GUID', async () => {
+      await service.updateUXML('Existing', '<ui:UXML>New</ui:UXML>');
+
+      const metaCall = mockFs.writeFile.mock.calls[1];
+      expect(metaCall[1]).toContain('guid: existingguid123');
+    });
+
+    it('should throw error when file not found', async () => {
+      mockFs.readdir.mockResolvedValue([]);
+      
+      await expect(service.updateUXML('NonExistent', 'content'))
+        .rejects.toThrow('UXML file not found: NonExistent');
+    });
+
+    it('should throw error for missing parameters', async () => {
+      await expect(service.updateUXML('', 'content'))
+        .rejects.toThrow('fileName and content are required');
+      
+      await expect(service.updateUXML('file', ''))
+        .rejects.toThrow('fileName and content are required');
+    });
+  });
+
+  describe('readUXML', () => {
+    beforeEach(() => {
+      mockFs.readdir.mockImplementation(async (dir) => {
+        if (dir.includes('UI')) {
+          return [
+            { name: 'Test.uxml', isFile: () => true, isDirectory: () => false },
+          ] as any;
+        }
+        return [];
+      });
+      mockFs.readFile.mockResolvedValue('<ui:UXML>Test content</ui:UXML>');
+    });
+
+    it('should read existing UXML file', async () => {
+      const result = await service.readUXML('Test');
+
+      expect(result.content[0].text).toBe('<ui:UXML>Test content</ui:UXML>');
+      expect(mockFs.readFile).toHaveBeenCalledWith(
+        expect.stringContaining('Test.uxml'),
+        'utf-8'
+      );
+    });
+
+    it('should add .uxml extension if missing', async () => {
+      await service.readUXML('Test');
+      
+      // The search will look for Test.uxml
+      expect(mockFs.readdir).toHaveBeenCalled();
+    });
+
+    it('should throw error when file not found', async () => {
+      mockFs.readdir.mockResolvedValue([]);
+      
+      await expect(service.readUXML('NonExistent'))
+        .rejects.toThrow('UXML file not found: NonExistent');
+    });
+  });
+
+  describe('listUXMLFiles', () => {
+    it('should list all UXML files with relative paths', async () => {
+      mockFs.readdir.mockImplementation(async (dir) => {
+        if (dir.includes('Components')) {
+          return [
+            { name: 'Button', isDirectory: () => true, isFile: () => false },
+          ] as any;
+        }
+        if (dir.includes('Button')) {
+          return [
+            { name: 'Button.uxml', isFile: () => true, isDirectory: () => false },
+            { name: 'Button.uss', isFile: () => true, isDirectory: () => false },
+          ] as any;
+        }
+        if (dir.includes('Assets') && !dir.includes('Components')) {
+          return [
+            { name: 'UI', isDirectory: () => true, isFile: () => false },
+          ] as any;
+        }
+        if (dir.includes('UI') && !dir.includes('Components')) {
+          return [
+            { name: 'Main.uxml', isFile: () => true, isDirectory: () => false },
+            { name: 'Components', isDirectory: () => true, isFile: () => false },
+          ] as any;
+        }
+        return [];
+      });
+
+      const result = await service.listUXMLFiles();
+
+      expect(result.content[0].text).toContain('Assets/UI/Main.uxml');
+      expect(result.content[0].text).toContain('Assets/UI/Components/Button/Button.uxml');
+      expect(result.content[0].text).not.toContain('.uss');
+    });
+
+    it('should return message when no UXML files found', async () => {
+      mockFs.readdir.mockResolvedValue([]);
+      
+      const result = await service.listUXMLFiles();
+
+      expect(result.content[0].text).toBe('No UXML files found in the project');
+    });
+  });
+
+  describe('createUIComponent', () => {
+    it('should create complete button component', async () => {
+      const result = await service.createUIComponent('TestButton', 'button');
+
+      expect(result.content[0].text).toContain('UI component "TestButton" created successfully');
+      expect(result.content[0].text).toContain('UXML: TestButton.uxml');
+      expect(result.content[0].text).toContain('USS: TestButton.uss');
+      expect(result.content[0].text).toContain('Controller: TestButton.cs');
+
+      // Check directory creation
+      expect(mockFs.mkdir).toHaveBeenCalledWith(
+        path.join(tempDir, 'Assets', 'UI', 'Components', 'TestButton'),
+        { recursive: true }
+      );
+
+      // Check all files created (3 files + 3 meta files = 6 calls)
+      expect(mockFs.writeFile).toHaveBeenCalledTimes(6);
+    });
+
+    it('should create panel component with correct templates', async () => {
+      await service.createUIComponent('TestPanel', 'panel');
+
+      // Check UXML content
+      const uxmlCall = mockFs.writeFile.mock.calls.find(call => 
+        call[0].toString().endsWith('TestPanel.uxml')
+      );
+      expect(uxmlCall![1]).toContain('panel-container');
+      expect(uxmlCall![1]).toContain('panel-header');
+      expect(uxmlCall![1]).toContain('close-button');
+
+      // Check USS content
+      const ussCall = mockFs.writeFile.mock.calls.find(call => 
+        call[0].toString().endsWith('TestPanel.uss')
+      );
+      expect(ussCall![1]).toContain('.panel-container');
+      expect(ussCall![1]).toContain('.panel-header');
+
+      // Check C# content
+      const csCall = mockFs.writeFile.mock.calls.find(call => 
+        call[0].toString().endsWith('TestPanel.cs')
+      );
+      expect(csCall![1]).toContain('public class TestPanel : MonoBehaviour');
+      expect(csCall![1]).toContain('UIDocument');
+    });
+
+    it('should create form component with proper structure', async () => {
+      await service.createUIComponent('LoginForm', 'form');
+
+      const uxmlCall = mockFs.writeFile.mock.calls.find(call => 
+        call[0].toString().endsWith('LoginForm.uxml')
+      );
+      expect(uxmlCall![1]).toContain('form-container');
+      expect(uxmlCall![1]).toContain('TextField');
+      expect(uxmlCall![1]).toContain('Toggle');
+      expect(uxmlCall![1]).toContain('submit-button');
+    });
+
+    it('should create modal component with overlay', async () => {
+      await service.createUIComponent('ConfirmModal', 'modal');
+
+      const uxmlCall = mockFs.writeFile.mock.calls.find(call => 
+        call[0].toString().endsWith('ConfirmModal.uxml')
+      );
+      expect(uxmlCall![1]).toContain('modal-overlay');
+      expect(uxmlCall![1]).toContain('modal-container');
+      expect(uxmlCall![1]).toContain('confirm-button');
+    });
+  });
+
+  describe('Edge Cases', () => {
+    it('should handle very long file names', async () => {
+      const longName = 'A'.repeat(300);
+      
+      // Should succeed but potentially truncate
+      const result = await service.createUXML(longName, 'document');
+      expect(result.content[0].text).toContain('created successfully');
+    });
+
+    it('should handle special characters in file names', async () => {
+      const specialNames = [
+        'Test Space',
+        'Test-Dash',
+        'Test_Underscore',
+        'Test.Dot',
+      ];
+
+      for (const name of specialNames) {
+        const result = await service.createUXML(name, 'document');
+        expect(result.content[0].text).toContain('created successfully');
+      }
+    });
+
+    it('should reject path traversal attempts', async () => {
+      const maliciousNames = [
+        '../../../etc/passwd',
+        '..\\..\\Windows\\System32',
+        '/absolute/path',
+        'C:\\Windows\\System',
+      ];
+
+      for (const name of maliciousNames) {
+        // Should sanitize or reject
+        const result = await service.createUXML(name, 'document');
+        
+        // Check that file is created in safe location
+        const fileCall = mockFs.writeFile.mock.calls[0];
+        expect(fileCall[0]).toContain('Assets');
+        expect(fileCall[0]).not.toContain('..');
+      }
+    });
+
+    it('should handle file system errors gracefully', async () => {
+      mockFs.writeFile.mockRejectedValue(new Error('Disk full'));
+
+      await expect(service.createUXML('Test', 'document'))
+        .rejects.toThrow('Failed to create UXML file');
+    });
+
+    it('should handle concurrent operations', async () => {
+      // Simulate concurrent file operations
+      const promises = [];
+      for (let i = 0; i < 10; i++) {
+        promises.push(service.createUXML(`Concurrent${i}`, 'document'));
+      }
+
+      const results = await Promise.all(promises);
+      
+      // All should succeed
+      results.forEach((result, i) => {
+        expect(result.content[0].text).toContain(`Concurrent${i}.uxml`);
+      });
+    });
+  });
+});

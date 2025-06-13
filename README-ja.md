@@ -133,6 +133,17 @@ curl -X POST http://localhost:3000/api/project/setup \
 - `compile_get_status` - 現在のコンパイル状態を取得
 - `compile_install_helper` - コンパイル監視ヘルパーをインストール
 
+### UI Toolkit操作
+- `ui_create_uxml` - UXMLレイアウトファイルを作成
+- `ui_create_uss` - USSスタイルファイルを作成
+- `ui_update_uxml` - 既存のUXML内容を更新
+- `ui_update_uss` - 既存のUSS内容を更新
+- `ui_read_uxml` - UXMLファイル内容を読み取り
+- `ui_read_uss` - USSファイル内容を読み取り
+- `ui_list_uxml` - 全UXMLファイルを一覧表示
+- `ui_list_uss` - 全USSファイルを一覧表示
+- `ui_create_component` - 完全なUIコンポーネントを作成（UXML + USS + C#）
+
 ## 使用例
 
 Claude Desktopは自然な日本語での入力を適切なMCPツールコマンドに変換できます。以下に例を示します：
@@ -165,7 +176,66 @@ Claude Desktopは自然な日本語での入力を適切なMCPツールコマン
 「適切な名前空間を提案」
 ```
 
+### UI Toolkit
+```
+# 重要：効果的な指示パターン
+UI Toolkitを正しく認識させるには、「UI Toolkitのpanelコンポーネント」のような具体的なキーワードを使用するか、ファイルタイプ（UXML、USS）を明示してください。
+
+# ゲームHUDの作成
+✅ 推奨 - コンポーネントタイプを指定
+「UI Toolkitのpanelコンポーネントとして、GameHUDを作成してください。体力バー、スコア表示、ミニマップを含めてください」
+
+✅ 推奨 - ファイルタイプを明示
+「体力バー付きゲームHUD用のGameHUD.uxml、GameHUD.uss、GameHUDController.csを作成」
+
+# 設定メニューの作成
+✅ 推奨方法
+「UI Toolkitのpanelコンポーネントとして、グラフィック、オーディオ、コントロールのタブを持つSettingsMenuを作成」
+
+別の方法：コンポーネントタイプを指定
+「UI Toolkitのformコンポーネントとして設定メニューを作成」
+
+# カスタムUIコンポーネント
+✅ コンポーネントタイプを指定して認識率向上
+「ホバーエフェクト付きのCustomButtonというUI Toolkitのbuttonコンポーネントを作成」
+
+# インベントリシステム
+「アイテムスロットとドラッグ＆ドロップ対応のInventorySystemというUI Toolkitのpanelコンポーネントを作成」
+
+# ダイアログシステム
+「タイプライター効果付きのDialogBoxというUI Toolkitのmodalコンポーネントを作成」
+
+# 既存UIの更新
+「MainMenu.uxmlにクレジットボタンを追加」
+「GameTheme.ussをダークカラースキームに更新」
+
+# UIファイルの読み取り
+「現在のHUD.uxmlレイアウトを表示」
+「GameTheme.ussのスタイルを読み取る」
+
+# 段階的アプローチ（自動認識が失敗した場合）
+「1. UI Toolkit用のHUD.uxmlを作成」
+「2. スタイリング用のHUD.ussを作成」
+「3. UIロジック用のHUDController.csを作成」
+```
+
+## UI Toolkitのトラブルシューティング
+
+UI ToolkitのコマンドがUXML/USSファイルではなくC#スクリプトのみを作成する場合：
+
+1. **具体的なコンポーネントタイプを使用**：単に「UI Toolkit」ではなく「UI Toolkitのpanelコンポーネント」と指定
+2. **コンポーネント名を明示的に指定**：「GameHUDという名前のUI Toolkitのpanelコンポーネントを作成」
+3. **ファイルタイプに言及**：「GameHUD.uxmlとGameHUD.ussを作成」
+4. 自動認識が失敗した場合は**段階的アプローチを使用**
+
 ## 最近の更新
+
+### v2.3.0 (2025-06-13)
+- UI Toolkit完全サポートを追加
+- UXML/USSファイルの作成、読み取り、更新機能
+- 完全なUIコンポーネント作成（UXML + USS + C#）
+- 複数のUIテンプレート（ボタン、パネル、リスト、フォーム、カード、モーダル）
+- テーマシステムとユーティリティスタイルのサポート
 
 ### v2.2.0 (2025-06-06)
 - シェーダーとマテリアルの更新機能を追加

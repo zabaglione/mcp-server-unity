@@ -1,5 +1,5 @@
 import { describe, it, expect } from '@jest/globals';
-import { UnityMCPServer } from '../../src/server.js';
+import { UnityMCPServer } from '../../src/index.js';
 import { ConsoleLogger } from '../../src/utils/logger.js';
 import { VirtualUnityProject } from '../virtual-unity-project.js';
 import * as path from 'path';
@@ -20,8 +20,8 @@ describe('Unity MCP Services - Basic Tests', () => {
 
     // Create virtual project
     const testDir = path.join(os.tmpdir(), 'unity-mcp-test-' + Date.now());
-    virtualProject = new VirtualUnityProject(testDir);
-    await virtualProject.create({ scriptCount: 5 });
+    virtualProject = new VirtualUnityProject(testDir, { scriptCount: 5 });
+    await virtualProject.generate();
     projectPath = virtualProject.getProjectPath();
   });
 

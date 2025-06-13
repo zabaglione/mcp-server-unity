@@ -48,8 +48,24 @@ export class ServiceFactory {
     const compilationService = new CompilationService(logger);
     const uiToolkitService = new UIToolkitService(logger);
 
-    // Set shader service reference in material service
+    // Set cross-service dependencies
     materialService.setShaderService(shaderService);
+    
+    // CRITICAL: Set RefreshService for ALL services that perform file operations
+    // This ensures Unity recognizes file changes immediately
+    const fileOperationServices = [
+      scriptService,
+      shaderService,
+      materialService,
+      editorScriptService,
+      uiToolkitService,
+      gameSystemService,
+      aiAutomationService
+    ];
+    
+    for (const service of fileOperationServices) {
+      service.setRefreshService(refreshService);
+    }
 
     return {
       projectService,
@@ -92,8 +108,23 @@ export class ServiceFactory {
         services.compilationService.setUnityProject(project);
         services.uiToolkitService.setUnityProject(project);
         
-        // Re-set shader service reference after project update
+        // Re-set service dependencies after project update
         services.materialService.setShaderService(services.shaderService);
+        
+        // CRITICAL: Re-set RefreshService connections after project update
+        const fileOperationServices = [
+          services.scriptService,
+          services.shaderService,
+          services.materialService,
+          services.editorScriptService,
+          services.uiToolkitService,
+          services.gameSystemService,
+          services.aiAutomationService
+        ];
+        
+        for (const service of fileOperationServices) {
+          service.setRefreshService(services.refreshService);
+        }
       }
       
       return result;

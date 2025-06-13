@@ -36,7 +36,14 @@
       "Bash(# HTTPサーバーをバックグラウンドで起動してテスト\n(npm run start:http 2>&1) &\nHTTP_PID=$!\nsleep 3\n\n# 簡潔なテストを実行\necho \"=== Testing AI Features ===\"\n\n# 1. Health check\necho -e \"\\n1. Health Check:\"\ncurl -s http://localhost:3000/health | jq .status\n\n# 2. Set project\necho -e \"\\n2. Setting Project:\"\ncurl -s -X POST http://localhost:3000/api/project/setup \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"projectPath\": \"/Users/zabaglione/Unity/MCPTest\"}' | jq '.content[0].text'\n\n# 3. AI Analysis\necho -e \"\\n3. AI Requirements Analysis:\"\ncurl -s -X POST http://localhost:3000/api/ai/analyze \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"description\": \"2D platformer with combat\"}' | jq '.content[0].text' | head -10\n\n# 4. Create Player Controller\necho -e \"\\n4. Create Player Controller:\"\ncurl -s -X POST http://localhost:3000/api/system/player-controller \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"gameType\": \"platformer\", \"requirements\": [\"doubleJump\"]}' | jq '.content[0].text' | head -5\n\n# 終了\npkill -f \"node build/start-http.js\" 2>/dev/null || true\necho -e \"\\n✅ All tests completed!\")",
       "Bash(# HTTPサーバーをバックグラウンドで起動\n(npm run start:http 2>&1) &\nHTTP_PID=$!\nsleep 3\n\n# 簡単なテストを実行\necho \"=== Material Features Test ===\"\n\n# 1. Set project\necho -e \"\\n1. Setting project:\"\ncurl -s -X POST http://localhost:3000/api/project/setup \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"projectPath\": \"/Users/zabaglione/Unity/MCPTest\"}' | jq '.content[0].text'\n\n# 2. Create material\necho -e \"\\n2. Creating material:\"\ncurl -s -X POST http://localhost:3000/api/asset/create-material \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"materialName\": \"TestMaterial\"}' | jq '.content[0].text'\n\n# 3. Update shader\necho -e \"\\n3. Updating shader:\"\ncurl -s -X PUT http://localhost:3000/api/material/shader \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"materialName\": \"TestMaterial\", \"shaderName\": \"Universal Render Pipeline/Lit\"}' | jq '.content[0].text' | head -5\n\n# 4. Update properties\necho -e \"\\n4. Updating properties:\"\ncurl -s -X PUT http://localhost:3000/api/material/properties \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\n    \"materialName\": \"TestMaterial\",\n    \"properties\": {\n      \"colors\": {\"_BaseColor\": [0.2, 0.8, 1.0, 1.0]},\n      \"floats\": {\"_Metallic\": 0.3, \"_Smoothness\": 0.8}\n    }\n  }' | jq '.content[0].text' | head -5\n\n# 終了\npkill -f \"node build/start-http.js\" 2>/dev/null || true\necho -e \"\\n✅ Test completed!\")",
       "Bash(npm run start:http:*)",
-      "Bash(pkill:*)"
+      "Bash(pkill:*)",
+      "WebFetch(domain:docs.anthropic.com)",
+      "Bash(npm test)",
+      "Bash(npm test:*)",
+      "Bash(npm run test:*)",
+      "Bash(npx tsc:*)",
+      "Bash(git restore:*)",
+      "Bash(npx tsx:*)"
     ],
     "deny": []
   }

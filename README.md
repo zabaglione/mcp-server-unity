@@ -106,6 +106,7 @@ curl -X POST http://localhost:3000/api/ai/analyze \
 
 - [API Documentation](./docs/api/HTTP_API.md) - Complete HTTP API reference
 - [Available Tools](./docs/api/AVAILABLE_TOOLS.md) - List of all MCP tools
+- [Critical Features](./docs/CRITICAL-FEATURES.md) - **⚠️ MUST READ: Essential features for proper Unity integration**
 - [Documentation Index](./docs/index.md) - All documentation
 
 ### Key Endpoints
@@ -145,6 +146,90 @@ const response = await fetch('http://localhost:3000/api/project/create-structure
   })
 });
 ```
+
+### UI Toolkit Examples
+
+#### Important: Effective Prompt Patterns
+For best results with UI Toolkit, use specific keywords like "UI Toolkit panel component" or mention file types (UXML, USS).
+
+#### Create a Game HUD
+```bash
+# ✅ Recommended - Specific component type
+"Create a UI Toolkit panel component named GameHUD with health bar, score display, and minimap"
+
+# ✅ Recommended - Explicit file types
+"Create GameHUD.uxml, GameHUD.uss, and GameHUDController.cs for a game HUD with health bar"
+
+# The server will create:
+# 1. GameHUD.uxml with proper layout
+# 2. GameHUD.uss with styling
+# 3. GameHUD.cs controller to manage the UI
+```
+
+#### Create a Settings Menu
+```bash
+# ✅ Recommended approach
+"Create a UI Toolkit panel component named SettingsMenu with graphics, audio, and controls tabs"
+
+# Alternative: Specify component type
+"Create a form component called SettingsMenu using UI Toolkit"
+
+# Creates:
+# - SettingsMenu.uxml with tab navigation
+# - SettingsMenu.uss with professional styling
+# - SettingsMenu.cs with tab switching logic
+```
+
+#### Create Custom UI Components
+```bash
+# ✅ Specify component type for better recognition
+"Create a UI Toolkit button component named CustomButton with hover effects"
+
+# Create an inventory system
+"Create a UI Toolkit panel component named InventorySystem with item slots and drag-drop support"
+
+# Create a dialog system
+"Create a UI Toolkit modal component named DialogBox with typewriter effect"
+```
+
+#### Update Existing UI
+```bash
+# Update UXML layout
+"Update the MainMenu.uxml to add a credits button"
+
+# Update USS styles
+"Update GameTheme.uss to use a dark color scheme"
+
+# Read UI files
+"Show me the current HUD.uxml layout"
+"Read the styles from GameTheme.uss"
+```
+
+#### Step-by-Step Approach (if automatic detection fails)
+```bash
+# Create files individually
+"1. Create HUD.uxml for UI Toolkit"
+"2. Create HUD.uss for styling"
+"3. Create HUDController.cs for the UI logic"
+```
+
+## UI Toolkit Troubleshooting
+
+If UI Toolkit commands only create C# scripts instead of UXML/USS files:
+
+1. **Use specific component types**: "UI Toolkit panel component" works better than just "UI Toolkit"
+2. **Name the component explicitly**: "Create a UI Toolkit panel component named GameHUD"
+3. **Mention file types**: "Create GameHUD.uxml and GameHUD.uss"
+4. **Use the step-by-step approach** if automatic detection fails
+
+## Recent Updates
+
+### v2.3.0 (2025-06-13)
+- Added full UI Toolkit support
+- UXML/USS file creation, reading, and updating
+- Complete UI component creation (UXML + USS + C#)
+- Multiple UI templates (button, panel, list, form, card, modal)
+- Theme system and utility styles support
 
 ## Development
 
@@ -260,6 +345,17 @@ For direct tool usage, here are the available MCP tools:
 - `system_refresh_assets` - Refresh Unity assets
 - `system_batch_start` - Start batch mode
 - `system_batch_end` - End batch mode
+
+### UI Toolkit Operations
+- `ui_create_uxml` - Create UXML layout files
+- `ui_create_uss` - Create USS style files
+- `ui_update_uxml` - Update existing UXML content
+- `ui_update_uss` - Update existing USS content
+- `ui_read_uxml` - Read UXML file content
+- `ui_read_uss` - Read USS file content
+- `ui_list_uxml` - List all UXML files
+- `ui_list_uss` - List all USS files
+- `ui_create_component` - Create complete UI component (UXML + USS + C#)
 
 ## Supported Build Targets
 

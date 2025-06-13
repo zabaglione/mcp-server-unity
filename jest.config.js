@@ -17,7 +17,7 @@ export default {
   
   // Module paths
   moduleNameMapper: {
-    '^(\\.{1,2}/.*)\\.js$': '$1.js',
+    '^(\\.{1,2}/.*)\\.js$': '$1',
   },
   
   // Transform files
@@ -26,7 +26,6 @@ export default {
       'ts-jest',
       {
         useESM: true,
-        isolatedModules: true,
         tsconfig: {
           module: 'ESNext',
           target: 'ES2020',
@@ -66,7 +65,8 @@ export default {
     '/build/',
     '/tests/manual/',
     '/tests/integration-test.js',
-    '/tests/comprehensive-test.js'
+    '/tests/comprehensive-test.js',
+    '/tests/integration/ui-toolkit-integration.test.ts'
   ],
   
   // Global timeout

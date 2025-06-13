@@ -73,21 +73,41 @@ export class UnityRefreshService extends BaseService {
       }
       if (options.specificFolders) {
         options.specificFolders.forEach(folder => {
-          content += `folder: ${folder}\n`;
+          // Ensure we're passing absolute paths for the handler to convert
+          const absolutePath = path.isAbsolute(folder) ? folder : path.join(this.unityProject!.projectPath, folder);
+          content += `folder: ${absolutePath}\n`;
         });
       }
     }
 
-    // Write trigger file
-    await fs.writeFile(triggerPath, content || 'refresh', 'utf-8');
+    // Write trigger file with timestamp to ensure change detection
+    const timestampedContent = `timestamp: ${Date.now()}\n${content || 'refresh'}`;
+    await fs.writeFile(triggerPath, timestampedContent, 'utf-8');
+    
+    // Also touch the file to ensure filesystem watcher triggers
+    const now = new Date();
+    await fs.utimes(triggerPath, now, now);
 
-    this.logger.info('Unity refresh triggered');
+    this.logger.info('Unity refresh triggered with timestamp');
+
+    // Create a lock file to ensure Unity processes the refresh
+    const lockPath = path.join(tempPath, 'unity_refresh_lock.txt');
+    await fs.writeFile(lockPath, 'processing', 'utf-8');
+    
+    // Remove lock after a short delay
+    setTimeout(async () => {
+      try {
+        await fs.unlink(lockPath);
+      } catch (e) {
+        // Ignore if already deleted
+      }
+    }, 1000);
 
     return {
       content: [
         {
           type: 'text',
-          text: `Unity asset refresh triggered${options?.forceRecompile ? ' with script recompilation' : ''}. Unity Editor will refresh shortly.`,
+          text: `Unity asset refresh triggered${options?.forceRecompile ? ' with script recompilation' : ''}. Unity Editor will process the refresh when it gains focus or within 5 seconds.`,
         },
       ],
     };

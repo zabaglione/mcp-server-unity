@@ -265,7 +265,7 @@ describe('Edge Cases: Input Validation', () => {
     it('should sanitize material property names', async () => {
       const maliciousProperties = {
         colors: {
-          '_BaseColor": "injection', // Quote injection attempt
+          '_BaseColor": "injection': [1, 0, 0, 1], // Quote injection attempt
           '_Color; DROP TABLE': [1, 0, 0, 1], // SQL-like injection
           '../../etc/passwd': [0, 1, 0, 1], // Path traversal
         },

@@ -11,6 +11,10 @@ export class ConsoleLogger implements Logger {
     console.error(`${this.prefix} INFO: ${message}`);
   }
 
+  warn(message: string): void {
+    console.error(`${this.prefix} WARN: ${message}`);
+  }
+
   error(message: string, error?: any): void {
     console.error(`${this.prefix} ERROR: ${message}`);
     if (error) {

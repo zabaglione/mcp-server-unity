@@ -44,6 +44,9 @@ export class UIToolkitService extends BaseService {
       const metaContent = this.generateUIMetaFile('uxml');
       await fs.writeFile(`${filePath}.meta`, metaContent, 'utf-8');
 
+      // Refresh Unity assets after file creation
+      await this.refreshAfterFileOperation(filePath);
+
       this.logger.info(`Created UXML file: ${fileName}.uxml`);
 
       return {
@@ -93,6 +96,9 @@ export class UIToolkitService extends BaseService {
       // Create .meta file
       const metaContent = this.generateUIMetaFile('uss');
       await fs.writeFile(`${filePath}.meta`, metaContent, 'utf-8');
+
+      // Refresh Unity assets after file creation
+      await this.refreshAfterFileOperation(filePath);
 
       this.logger.info(`Created USS file: ${fileName}.uss`);
 
@@ -151,6 +157,9 @@ export class UIToolkitService extends BaseService {
         await fs.writeFile(metaPath, metaContent, 'utf-8');
       }
 
+      // Refresh Unity assets after file update
+      await this.refreshAfterFileOperation(uxmlPath);
+
       this.logger.info(`Updated UXML file: ${uxmlPath}`);
 
       return {
@@ -207,6 +216,9 @@ export class UIToolkitService extends BaseService {
         const metaContent = this.generateUIMetaFile('uss', originalGuid);
         await fs.writeFile(metaPath, metaContent, 'utf-8');
       }
+
+      // Refresh Unity assets after file update
+      await this.refreshAfterFileOperation(ussPath);
 
       this.logger.info(`Updated USS file: ${ussPath}`);
 
@@ -369,6 +381,9 @@ export class UIToolkitService extends BaseService {
       const controllerPath = path.join(componentPath, `${componentName}.cs`);
       await fs.writeFile(controllerPath, controllerContent, 'utf-8');
       await fs.writeFile(`${controllerPath}.meta`, this.generateScriptMetaFile(), 'utf-8');
+
+      // Refresh Unity assets after creating all component files
+      await this.refreshAfterFileOperation(componentPath);
 
       return {
         content: [{

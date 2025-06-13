@@ -25,6 +25,22 @@ public static class UnityRefreshHandler
         
         // Also listen for play mode changes
         EditorApplication.playModeStateChanged += OnPlayModeStateChanged;
+        
+        // Listen for focus changes to handle pending refreshes
+        EditorApplication.focusChanged += OnFocusChanged;
+    }
+    
+    private static void OnFocusChanged(bool hasFocus)
+    {
+        if (hasFocus)
+        {
+            // When Unity gains focus, immediately check for pending refreshes
+            if (File.Exists(RefreshTriggerPath) || File.Exists(BatchOperationPath))
+            {
+                Debug.Log("[UnityRefreshHandler] Unity gained focus - processing pending refresh");
+                ProcessRefreshRequest();
+            }
+        }
     }
     
     private static void SetupFileWatcher()
@@ -121,6 +137,18 @@ public static class UnityRefreshHandler
     {
         Debug.Log($"[UnityRefreshHandler] Refreshing assets with options: {options}");
         
+        // Force Unity to become responsive
+        EditorApplication.isPaused = false;
+        if (!Application.isFocused)
+        {
+            // Try to bring Unity to foreground
+            EditorWindow projectWindow = EditorWindow.GetWindow(System.Type.GetType("UnityEditor.ProjectBrowser,UnityEditor"));
+            if (projectWindow != null)
+            {
+                projectWindow.Focus();
+            }
+        }
+        
         if (options.ImportAssets)
         {
             if (options.ForceRecompile)
@@ -132,6 +160,12 @@ public static class UnityRefreshHandler
                 if (options.RecompileScripts)
                 {
                     UnityEditor.Compilation.CompilationPipeline.RequestScriptCompilation();
+                    
+                    // Force Unity to focus to trigger compilation
+                    EditorApplication.ExecuteMenuItem("Window/General/Project");
+                    EditorApplication.delayCall += () => {
+                        EditorApplication.ExecuteMenuItem("Assets/Refresh");
+                    };
                 }
             }
             else
@@ -145,9 +179,26 @@ public static class UnityRefreshHandler
         {
             foreach (string folder in options.RefreshSpecificFolders)
             {
-                if (Directory.Exists(folder))
+                // Convert absolute path to project-relative path
+                string relativePath = folder;
+                if (Path.IsPathRooted(folder))
                 {
-                    AssetDatabase.ImportAsset(folder, ImportAssetOptions.ImportRecursive);
+                    string projectPath = Path.GetDirectoryName(Application.dataPath);
+                    if (folder.StartsWith(projectPath))
+                    {
+                        relativePath = folder.Substring(projectPath.Length + 1).Replace('\\', '/');
+                    }
+                }
+                
+                // AssetDatabase requires paths relative to project folder (e.g., "Assets/...")
+                if (relativePath.StartsWith("Assets/") && Directory.Exists(folder))
+                {
+                    AssetDatabase.ImportAsset(relativePath, ImportAssetOptions.ImportRecursive);
+                    Debug.Log($"[UnityRefreshHandler] Imported folder: {relativePath}");
+                }
+                else
+                {
+                    Debug.LogWarning($"[UnityRefreshHandler] Invalid path for AssetDatabase: {folder} (converted to: {relativePath})");
                 }
             }
         }
