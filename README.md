@@ -4,6 +4,10 @@
 
 A Model Context Protocol (MCP) server that enables AI assistants like Claude to interact with Unity projects programmatically. Supports both Claude Desktop integration and HTTP API for flexible development workflows.
 
+<a href="https://glama.ai/mcp/servers/@zabaglione/mcp-server-unity">
+  <img width="380" height="200" src="https://glama.ai/mcp/servers/@zabaglione/mcp-server-unity/badge" alt="Server for Unity MCP server" />
+</a>
+
 ## Features
 
 ### 📦 Core Features
