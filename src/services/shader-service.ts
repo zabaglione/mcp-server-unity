@@ -12,6 +12,7 @@ import { getURPShaderGraphTemplate } from '../templates/shadergraph-urp-template
 import { getHDRPShaderGraphTemplate } from '../templates/shadergraph-hdrp-template.js';
 import { CONFIG } from '../config/index.js';
 import { UnityMetaGenerator } from '../utils/unity-meta-generator.js';
+import { writeLargeFile, FILE_SIZE_THRESHOLDS } from '../utils/stream-file-utils.js';
 
 export type ShaderType = 'builtin' | 'urp' | 'hdrp' | 'urpGraph' | 'hdrpGraph';
 
@@ -50,7 +51,15 @@ export class ShaderService extends BaseService {
 
     // Write shader file
     const shaderPath = path.join(shadersPath, shaderFileName);
-    await fs.writeFile(shaderPath, shaderContent, 'utf-8');
+    
+    // Use streaming for large shader files (e.g., complex shader graphs)
+    const contentSize = Buffer.byteLength(shaderContent, 'utf8');
+    if (contentSize > FILE_SIZE_THRESHOLDS.STREAMING_THRESHOLD) {
+      this.logger.info(`Creating large shader file (${Math.round(contentSize / 1024 / 1024)}MB) using streaming...`);
+      await writeLargeFile(shaderPath, shaderContent);
+    } else {
+      await fs.writeFile(shaderPath, shaderContent, 'utf-8');
+    }
 
     // Create meta file for all shader types
     const guid = await UnityMetaGenerator.createMetaFile(shaderPath);

@@ -23,8 +23,9 @@ export class UnityMCPHttpServer {
 
   private setupMiddleware(): void {
     this.app.use(cors());
-    this.app.use(express.json({ limit: '50mb' }));
-    this.app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+    // Increase limit to 1GB for large file operations
+    this.app.use(express.json({ limit: '1gb' }));
+    this.app.use(express.urlencoded({ extended: true, limit: '1gb' }));
 
     // Request logging
     this.app.use((req, _res, next) => {

@@ -7,6 +7,12 @@ import { UnityProjectValidator } from '../validators/unity-project-validator.js'
 import { findFiles, ensureDirectory } from '../utils/file-utils.js';
 import { FileNotFoundError } from '../errors/index.js';
 import { MetaFileManager } from '../utils/meta-file-manager.js';
+import { 
+  shouldUseStreaming, 
+  readLargeFile, 
+  writeLargeFile,
+  FILE_SIZE_THRESHOLDS 
+} from '../utils/stream-file-utils.js';
 
 export class ScriptService extends BaseService {
   private validator: UnityProjectValidator;
@@ -32,7 +38,15 @@ export class ScriptService extends BaseService {
 
     await ensureDirectory(targetFolder);
     const filePath = path.join(targetFolder, scriptName);
-    await fs.writeFile(filePath, content, 'utf-8');
+    
+    // Use streaming for large files
+    const contentSize = Buffer.byteLength(content, 'utf8');
+    if (contentSize > FILE_SIZE_THRESHOLDS.STREAMING_THRESHOLD) {
+      this.logger.info(`Creating large script file (${Math.round(contentSize / 1024 / 1024)}MB) using streaming...`);
+      await writeLargeFile(filePath, content);
+    } else {
+      await fs.writeFile(filePath, content, 'utf-8');
+    }
 
     this.logger.info(`Script created: ${filePath}`);
 
@@ -66,7 +80,17 @@ export class ScriptService extends BaseService {
       throw new FileNotFoundError(fileName, 'Script');
     }
 
-    const content = await fs.readFile(scriptFiles[0], 'utf-8');
+    const scriptPath = scriptFiles[0];
+    
+    // Check if we should use streaming for large files
+    let content: string;
+    if (await shouldUseStreaming(scriptPath)) {
+      const stats = await fs.stat(scriptPath);
+      this.logger.info(`Reading large script file (${Math.round(stats.size / 1024 / 1024)}MB) using streaming...`);
+      content = await readLargeFile(scriptPath);
+    } else {
+      content = await fs.readFile(scriptPath, 'utf-8');
+    }
     
     return {
       content: [
@@ -118,8 +142,14 @@ export class ScriptService extends BaseService {
 
     const scriptPath = scriptFiles[0];
 
-    // Write new content
-    await fs.writeFile(scriptPath, content, 'utf-8');
+    // Use streaming for large files
+    const contentSize = Buffer.byteLength(content, 'utf8');
+    if (contentSize > FILE_SIZE_THRESHOLDS.STREAMING_THRESHOLD) {
+      this.logger.info(`Updating large script file (${Math.round(contentSize / 1024 / 1024)}MB) using streaming...`);
+      await writeLargeFile(scriptPath, content);
+    } else {
+      await fs.writeFile(scriptPath, content, 'utf-8');
+    }
     this.logger.info(`Updated script: ${scriptPath}`);
 
     return {

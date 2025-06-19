@@ -3,11 +3,42 @@ import * as path from 'path';
 import { BaseService } from './base-service.js';
 import { InvalidParameterError, FileOperationError } from '../errors/index.js';
 import { generateGuid } from '../utils/guid.js';
+import { 
+  shouldUseStreaming, 
+  readLargeFile, 
+  writeLargeFile,
+  FILE_SIZE_THRESHOLDS 
+} from '../utils/stream-file-utils.js';
 
 /**
  * Service for managing Unity UI Toolkit assets (UXML and USS files)
  */
 export class UIToolkitService extends BaseService {
+  /**
+   * Write UI file with streaming support for large files
+   */
+  private async writeUIFile(filePath: string, content: string): Promise<void> {
+    const contentSize = Buffer.byteLength(content, 'utf8');
+    if (contentSize > FILE_SIZE_THRESHOLDS.STREAMING_THRESHOLD) {
+      this.logger.info(`Writing large UI file (${Math.round(contentSize / 1024 / 1024)}MB) using streaming...`);
+      await writeLargeFile(filePath, content);
+    } else {
+      await this.writeUIFile(filePath, content);
+    }
+  }
+
+  /**
+   * Read UI file with streaming support for large files
+   */
+  private async readUIFile(filePath: string): Promise<string> {
+    if (await shouldUseStreaming(filePath)) {
+      const stats = await fs.stat(filePath);
+      this.logger.info(`Reading large UI file (${Math.round(stats.size / 1024 / 1024)}MB) using streaming...`);
+      return await readLargeFile(filePath);
+    } else {
+      return await this.readUIFile(filePath);
+    }
+  }
   /**
    * Create a new UXML file with basic structure
    */
@@ -38,7 +69,7 @@ export class UIToolkitService extends BaseService {
         content = this.generateUXMLTemplate(fileName, templateType);
       }
 
-      await fs.writeFile(filePath, content, 'utf-8');
+      await this.writeUIFile(filePath, content);
 
       // Create .meta file
       const metaContent = this.generateUIMetaFile('uxml');
@@ -91,7 +122,7 @@ export class UIToolkitService extends BaseService {
         content = this.generateUSSTemplate(fileName, templateType);
       }
 
-      await fs.writeFile(filePath, content, 'utf-8');
+      await this.writeUIFile(filePath, content);
 
       // Create .meta file
       const metaContent = this.generateUIMetaFile('uss');
@@ -149,7 +180,7 @@ export class UIToolkitService extends BaseService {
       }
 
       // Update UXML content
-      await fs.writeFile(uxmlPath, content, 'utf-8');
+      await this.writeUIFile(uxmlPath, content);
 
       // Restore meta file with original GUID
       if (originalGuid) {
@@ -209,7 +240,7 @@ export class UIToolkitService extends BaseService {
       }
 
       // Update USS content
-      await fs.writeFile(ussPath, content, 'utf-8');
+      await this.writeUIFile(ussPath, content);
 
       // Restore meta file with original GUID
       if (originalGuid) {
@@ -247,7 +278,7 @@ export class UIToolkitService extends BaseService {
         throw new FileOperationError(`UXML file not found: ${fileName}`);
       }
 
-      const content = await fs.readFile(uxmlPath, 'utf-8');
+      const content = await this.readUIFile(uxmlPath);
 
       return {
         content: [{
@@ -274,7 +305,7 @@ export class UIToolkitService extends BaseService {
         throw new FileOperationError(`USS file not found: ${fileName}`);
       }
 
-      const content = await fs.readFile(ussPath, 'utf-8');
+      const content = await this.readUIFile(ussPath);
 
       return {
         content: [{
@@ -367,19 +398,19 @@ export class UIToolkitService extends BaseService {
       // Generate UXML
       const uxmlContent = this.generateComponentUXML(componentName, componentType);
       const uxmlPath = path.join(componentPath, `${componentName}.uxml`);
-      await fs.writeFile(uxmlPath, uxmlContent, 'utf-8');
+      await this.writeUIFile(uxmlPath, uxmlContent);
       await fs.writeFile(`${uxmlPath}.meta`, this.generateUIMetaFile('uxml'), 'utf-8');
 
       // Generate USS
       const ussContent = this.generateComponentUSS(componentName, componentType);
       const ussPath = path.join(componentPath, `${componentName}.uss`);
-      await fs.writeFile(ussPath, ussContent, 'utf-8');
+      await this.writeUIFile(ussPath, ussContent);
       await fs.writeFile(`${ussPath}.meta`, this.generateUIMetaFile('uss'), 'utf-8');
 
       // Generate C# controller (optional)
       const controllerContent = this.generateComponentController(componentName, componentType);
       const controllerPath = path.join(componentPath, `${componentName}.cs`);
-      await fs.writeFile(controllerPath, controllerContent, 'utf-8');
+      await this.writeUIFile(controllerPath, controllerContent);
       await fs.writeFile(`${controllerPath}.meta`, this.generateScriptMetaFile(), 'utf-8');
 
       // Refresh Unity assets after creating all component files

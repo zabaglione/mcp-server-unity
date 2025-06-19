@@ -5,6 +5,12 @@ import path from 'path';
 import fs from 'fs/promises';
 import yaml from 'js-yaml';
 import { UnityMetaGenerator } from '../utils/unity-meta-generator.js';
+import { 
+  shouldUseStreaming, 
+  readLargeFile, 
+  writeLargeFile,
+  FILE_SIZE_THRESHOLDS 
+} from '../utils/stream-file-utils.js';
 
 interface MaterialData {
   Material: {
@@ -52,6 +58,32 @@ export class MaterialService extends BaseService {
 
   constructor(logger: Logger) {
     super(logger);
+  }
+
+  /**
+   * Read material file with streaming support for large files
+   */
+  private async readMaterialFile(materialPath: string): Promise<string> {
+    if (await shouldUseStreaming(materialPath)) {
+      const stats = await fs.stat(materialPath);
+      this.logger.info(`Reading large material file (${Math.round(stats.size / 1024 / 1024)}MB) using streaming...`);
+      return await readLargeFile(materialPath);
+    } else {
+      return await fs.readFile(materialPath, 'utf-8');
+    }
+  }
+
+  /**
+   * Write material file with streaming support for large files
+   */
+  private async writeMaterialFile(materialPath: string, content: string): Promise<void> {
+    const contentSize = Buffer.byteLength(content, 'utf8');
+    if (contentSize > FILE_SIZE_THRESHOLDS.STREAMING_THRESHOLD) {
+      this.logger.info(`Writing large material file (${Math.round(contentSize / 1024 / 1024)}MB) using streaming...`);
+      await writeLargeFile(materialPath, content);
+    } else {
+      await this.writeMaterialFile(materialPath, content);
+    }
   }
 
   /**
@@ -147,7 +179,7 @@ export class MaterialService extends BaseService {
 
 
     // Read material data
-    const content = await fs.readFile(materialPath, 'utf-8');
+    const content = await this.readMaterialFile(materialPath);
     const processedContent = this.preprocessUnityYAML(content);
     const materialData = yaml.load(processedContent) as MaterialData;
 
@@ -194,7 +226,7 @@ export class MaterialService extends BaseService {
 
     // Ensure Unity YAML header and tags
     const finalContent = '%YAML 1.1\n%TAG !u! tag:unity3d.com,2011:\n--- !u!21 &2100000\n' + updatedContent;
-    await fs.writeFile(materialPath, finalContent, 'utf-8');
+    await this.writeMaterialFile(materialPath, finalContent);
 
     this.logger.info(`Updated shader for material: ${materialName} to ${shaderName}`);
 
@@ -237,7 +269,7 @@ export class MaterialService extends BaseService {
 
 
     // Read material data
-    const content = await fs.readFile(materialPath, 'utf-8');
+    const content = await this.readMaterialFile(materialPath);
     const processedContent = this.preprocessUnityYAML(content);
     const materialData = yaml.load(processedContent) as MaterialData;
 
@@ -283,7 +315,7 @@ export class MaterialService extends BaseService {
     });
 
     const finalContent = '%YAML 1.1\n%TAG !u! tag:unity3d.com,2011:\n--- !u!21 &2100000\n' + updatedContent;
-    await fs.writeFile(materialPath, finalContent, 'utf-8');
+    await this.writeMaterialFile(materialPath, finalContent);
 
     this.logger.info(`Updated properties for material: ${materialName}`);
 
@@ -319,7 +351,7 @@ export class MaterialService extends BaseService {
     }
 
     // Read material data
-    const content = await fs.readFile(materialPath, 'utf-8');
+    const content = await this.readMaterialFile(materialPath);
     const processedContent = this.preprocessUnityYAML(content);
     const materialData = yaml.load(processedContent) as MaterialData;
 
@@ -464,7 +496,7 @@ export class MaterialService extends BaseService {
     });
 
     const finalContent = '%YAML 1.1\n%TAG !u! tag:unity3d.com,2011:\n--- !u!21 &2100000\n' + materialContent;
-    await fs.writeFile(materialPath, finalContent, 'utf-8');
+    await this.writeMaterialFile(materialPath, finalContent);
 
     // Create meta file
     await UnityMetaGenerator.createMaterialMetaFile(materialPath);
@@ -636,7 +668,7 @@ export class MaterialService extends BaseService {
   }
 
   private async remapMaterialProperties(materialPath: string, propertyMapping: Record<string, string>): Promise<void> {
-    const content = await fs.readFile(materialPath, 'utf-8');
+    const content = await this.readMaterialFile(materialPath);
     const processedContent = this.preprocessUnityYAML(content);
     const materialData = yaml.load(processedContent) as MaterialData;
     const savedProps = materialData.Material.m_SavedProperties;
@@ -680,7 +712,7 @@ export class MaterialService extends BaseService {
     });
 
     const finalContent = '%YAML 1.1\n%TAG !u! tag:unity3d.com,2011:\n--- !u!21 &2100000\n' + updatedContent;
-    await fs.writeFile(materialPath, finalContent, 'utf-8');
+    await this.writeMaterialFile(materialPath, finalContent);
   }
 
   private async fileExists(filePath: string): Promise<boolean> {
@@ -729,7 +761,7 @@ export class MaterialService extends BaseService {
     }
 
     // Read current content for temporary backup
-    const currentContent = await fs.readFile(materialPath, 'utf-8');
+    const currentContent = await this.readMaterialFile(materialPath);
     const backupPath = `${materialPath}.backup`;
     let updateSuccess = false;
 
@@ -738,7 +770,7 @@ export class MaterialService extends BaseService {
       await fs.writeFile(backupPath, currentContent, 'utf-8');
 
       // Update the material
-      await fs.writeFile(materialPath, newContent, 'utf-8');
+      await this.writeMaterialFile(materialPath, newContent);
       updateSuccess = true;
 
       this.logger.info(`Material updated: ${materialPath}`);
@@ -754,7 +786,7 @@ export class MaterialService extends BaseService {
     } catch (error) {
       // If update failed, restore from backup
       if (!updateSuccess && await this.fileExists(backupPath)) {
-        await fs.writeFile(materialPath, currentContent, 'utf-8');
+        await this.writeMaterialFile(materialPath, currentContent);
       }
       throw error;
     } finally {

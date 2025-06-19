@@ -1,7 +1,33 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
 # Unity MCP Server - Project Knowledge Base
 
 ## Project Overview
 Unity MCP Server is a Model Context Protocol (MCP) server that bridges AI assistants (like Claude) with Unity game development. It enables programmatic interaction with Unity projects through both Claude Desktop integration and HTTP API.
+
+## Commands
+
+### Build and Development
+- `npm run build` - Compile TypeScript to JavaScript
+- `npm run dev` - Watch mode for development
+- `npm start` - Start MCP server (stdio mode for Claude Desktop)
+- `npm run start:http` - Start HTTP API server (default port 3000)
+- `npm run clean` - Clean build artifacts
+
+### Testing
+- `npm test` - Run all tests
+- `npm run test:unit` - Unit tests only
+- `npm run test:integration` - Integration tests only  
+- `npm run test:e2e` - End-to-end tests
+- `npm run test:coverage` - Generate coverage report
+- `npm run test:manual` - Interactive manual test runner
+- `npm run test:performance` - Run performance benchmarks
+- `npm run test:watch` - Watch mode for tests
+
+### No Linting/Formatting
+- No ESLint or Prettier configured - maintain existing code style
 
 ## Architecture
 
@@ -18,6 +44,7 @@ All services extend from `BaseService` and follow a consistent pattern:
 - **CompilationService**: Real-time compilation error monitoring
 - **UnityRefreshService**: Asset database refresh with batch operations
 - **UnityDiagnosticsService**: Editor log analysis and error tracking
+- **UIToolkitService**: UXML/USS file creation and management
 
 ### Key Design Patterns
 
@@ -60,10 +87,12 @@ All services extend from `BaseService` and follow a consistent pattern:
 - Comprehensive logging with context
 
 ### Testing
-- Manual tests in `tests/manual/` for each feature
-- Integration tests for service interactions
-- Performance benchmarks for batch operations
-- Snapshot testing for generated content
+- Jest framework with TypeScript support
+- Virtual Unity project utility for test environments (`tests/utils/virtualUnityProject.ts`)
+- Snapshot testing for generated content validation
+- Performance benchmarks exported to JSON
+- Coverage thresholds: 80% lines, 70% branches/functions
+- Test structure mirrors source structure (e.g., `src/services/foo.ts` → `tests/unit/services/foo.test.ts`)
 
 ## Unity Integration Points
 
@@ -121,3 +150,36 @@ UnityProject/
 - No execution of arbitrary Unity code
 - Safe template rendering
 - Input sanitization for all operations
+
+## Critical Implementation Details
+
+### Unity Asset Refresh
+- **CRITICAL**: Always trigger Unity refresh after file operations using `UnityRefreshService`
+- Unity won't recognize new/modified assets without refresh
+- Batch operations supported to minimize refresh calls
+- Both immediate and deferred refresh modes available
+
+### Meta File Generation
+- Every Unity asset MUST have a corresponding .meta file
+- GUIDs must be consistent to prevent reference breakage
+- When updating shaders/materials, preserve existing GUIDs
+- Meta files generated automatically by all asset creation services
+
+### Service Dependencies
+- Services can depend on each other (inject via constructor)
+- Example: `MaterialService` depends on `ShaderService`
+- All services registered in `ServicesContainer`
+- Use `ServiceFactory` to create properly wired instances
+
+### Template System
+- All code generation uses templates from `src/templates/`
+- Templates support placeholders: `{{NAMESPACE}}`, `{{CLASS_NAME}}`, etc.
+- Shader templates vary by render pipeline (builtin/urp/hdrp)
+- UI Toolkit templates for windows, documents, and components
+
+### Large File Support
+- Automatic streaming for files larger than 10MB
+- Maximum file size limit: 1GB
+- Services automatically use streaming for read/write operations
+- HTTP API supports up to 1GB request bodies
+- Implemented in: ScriptService, ShaderService, MaterialService, UIToolkitService
