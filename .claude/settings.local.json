@@ -43,7 +43,10 @@
       "Bash(npm run test:*)",
       "Bash(npx tsc:*)",
       "Bash(git restore:*)",
-      "Bash(npx tsx:*)"
+      "Bash(npx tsx:*)",
+      "Bash(rg:*)",
+      "Bash(NODE_OPTIONS=--experimental-vm-modules npx jest tests/unit/utils/stream-file-utils.test.ts)",
+      "Bash(NODE_OPTIONS=--experimental-vm-modules npx jest tests/unit/utils/stream-file-utils.test.ts --verbose)"
     ],
     "deny": []
   }

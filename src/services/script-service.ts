@@ -84,12 +84,29 @@ export class ScriptService extends BaseService {
     
     // Check if we should use streaming for large files
     let content: string;
+    const stats = await fs.stat(scriptPath);
+    const fileSizeMB = Math.round(stats.size / 1024 / 1024);
+    
     if (await shouldUseStreaming(scriptPath)) {
-      const stats = await fs.stat(scriptPath);
-      this.logger.info(`Reading large script file (${Math.round(stats.size / 1024 / 1024)}MB) using streaming...`);
+      this.logger.info(`Reading large script file (${fileSizeMB}MB) using streaming...`);
+      
+      // Warn if file might be too large for MCP
+      if (stats.size > FILE_SIZE_THRESHOLDS.MCP_RESPONSE_LIMIT) {
+        this.logger.warn(
+          `Script file is ${fileSizeMB}MB, which exceeds the MCP response limit. ` +
+          `Consider splitting the file or reading it in chunks.`
+        );
+      }
+      
       content = await readLargeFile(scriptPath);
     } else {
       content = await fs.readFile(scriptPath, 'utf-8');
+    }
+    
+    // Check if content might be too large for MCP response
+    const contentLength = Buffer.byteLength(content, 'utf8');
+    if (contentLength > 10 * 1024 * 1024) { // 10MB warning threshold
+      this.logger.warn(`[ScriptService] Large file response: ${(contentLength / 1024 / 1024).toFixed(2)}MB. This might exceed MCP limits.`);
     }
     
     return {

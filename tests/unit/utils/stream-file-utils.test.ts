@@ -6,6 +6,7 @@ import {
   getFileSizeWithValidation,
   readLargeFile,
   writeLargeFile,
+  readFilePartial,
   FILE_SIZE_THRESHOLDS 
 } from '../../../src/utils/stream-file-utils.js';
 
@@ -128,6 +129,39 @@ describe('StreamFileUtils', () => {
       
       // Restore original
       (Buffer as any).byteLength = originalByteLength;
+    });
+  });
+  
+  describe('readFilePartial', () => {
+    it('should read partial content from beginning', async () => {
+      const filePath = path.join(testDir, 'partial.txt');
+      const content = 'This is a test file for partial reading';
+      await fs.writeFile(filePath, content);
+      
+      const result = await readFilePartial(filePath, { maxBytes: 10 });
+      expect(result.content).toBe('This is a ');
+      expect(result.truncated).toBe(true);
+      expect(result.totalSize).toBe(content.length);
+    });
+    
+    it('should read partial content with start and end', async () => {
+      const filePath = path.join(testDir, 'partial.txt');
+      const content = '0123456789ABCDEF';
+      await fs.writeFile(filePath, content);
+      
+      const result = await readFilePartial(filePath, { start: 5, end: 9 });
+      expect(result.content).toBe('56789');
+      expect(result.truncated).toBe(true);
+    });
+    
+    it('should handle reading entire file', async () => {
+      const filePath = path.join(testDir, 'partial.txt');
+      const content = 'Small file';
+      await fs.writeFile(filePath, content);
+      
+      const result = await readFilePartial(filePath, { maxBytes: 1000 });
+      expect(result.content).toBe(content);
+      expect(result.truncated).toBe(false);
     });
   });
 });
