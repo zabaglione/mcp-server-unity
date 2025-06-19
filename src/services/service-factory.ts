@@ -1,6 +1,7 @@
 import { Logger } from '../types/index.js';
 import { ProjectService } from './project-service.js';
 import { ScriptService } from './script-service.js';
+import { OptimizedScriptService } from './optimized-script-service.js';
 import { AssetService } from './asset-service.js';
 import { BuildService } from './build-service.js';
 import { ShaderService } from './shader-service.js';
@@ -32,9 +33,11 @@ export interface Services {
 }
 
 export class ServiceFactory {
-  static createServices(logger: Logger): Services {
+  static createServices(logger: Logger, useOptimized: boolean = false): Services {
     const projectService = new ProjectService(logger);
-    const scriptService = new ScriptService(logger);
+    const scriptService = useOptimized 
+      ? new OptimizedScriptService(logger)
+      : new ScriptService(logger);
     const assetService = new AssetService(logger);
     const buildService = new BuildService(logger);
     const shaderService = new ShaderService(logger);
@@ -95,6 +98,11 @@ export class ServiceFactory {
       
       if (project) {
         services.scriptService.setUnityProject(project);
+        
+        // Initialize cache for optimized script service
+        if (services.scriptService instanceof OptimizedScriptService) {
+          (services.scriptService as OptimizedScriptService).initializeForProject(project.projectPath);
+        }
         services.assetService.setUnityProject(project);
         services.buildService.setUnityProject(project);
         services.shaderService.setUnityProject(project);

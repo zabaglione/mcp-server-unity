@@ -35,8 +35,13 @@ class UnityMCPServer {
       }
     );
 
-    // Initialize services using container
-    this.servicesContainer = new ServicesContainer(this.logger);
+    // Initialize services using container with optional optimizations
+    const useOptimized = process.env.USE_OPTIMIZED_SERVICES === 'true';
+    if (useOptimized) {
+      this.logger.info('Initializing with optimized services (caching and partial updates enabled)');
+    }
+    
+    this.servicesContainer = new ServicesContainer(this.logger, useOptimized);
     this.services = this.servicesContainer.getServices();
 
     this.setupHandlers();
@@ -714,6 +719,42 @@ class UnityMCPServer {
             required: ['fileName', 'content'],
           },
         },
+        {
+          name: 'asset_update_script_partial',
+          description: 'Partially update a C# script with specific patches (faster for small changes)',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              fileName: {
+                type: 'string',
+                description: 'Name of the script file',
+              },
+              patches: {
+                type: 'array',
+                description: 'Array of patches to apply',
+                items: {
+                  type: 'object',
+                  properties: {
+                    start: {
+                      type: 'number',
+                      description: 'Start character position',
+                    },
+                    end: {
+                      type: 'number',
+                      description: 'End character position',
+                    },
+                    replacement: {
+                      type: 'string',
+                      description: 'Text to replace the range with',
+                    },
+                  },
+                  required: ['start', 'end', 'replacement'],
+                },
+              },
+            },
+            required: ['fileName', 'patches'],
+          },
+        },
         // Code Analysis Tools
         {
           name: 'code_analyze_diff',
@@ -1233,6 +1274,28 @@ class UnityMCPServer {
               args.fileName,
               args.content
             );
+
+          case 'asset_update_script_partial':
+            if (!args || typeof args.fileName !== 'string' || !Array.isArray(args.patches)) {
+              throw new McpError(ErrorCode.InvalidParams, 'fileName and patches array are required');
+            }
+            
+            // Validate patches structure
+            for (const patch of args.patches) {
+              if (typeof patch.start !== 'number' || typeof patch.end !== 'number' || typeof patch.replacement !== 'string') {
+                throw new McpError(ErrorCode.InvalidParams, 'Each patch must have start (number), end (number), and replacement (string)');
+              }
+            }
+            
+            // Check if service supports partial updates
+            if (typeof this.services.scriptService.updateScriptPartial === 'function') {
+              return await this.services.scriptService.updateScriptPartial(
+                args.fileName,
+                args.patches
+              );
+            } else {
+              throw new McpError(ErrorCode.MethodNotFound, 'Partial updates not supported. Use USE_OPTIMIZED_SERVICES=true environment variable to enable this feature.');
+            }
 
           // Code Analysis Tools
           case 'code_analyze_diff':

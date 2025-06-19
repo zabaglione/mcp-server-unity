@@ -14,7 +14,14 @@ export class UnityMCPHttpServer {
     this.port = port;
     this.app = express();
     this.logger = new ConsoleLogger('[Unity MCP HTTP]');
-    this.servicesContainer = new ServicesContainer(this.logger);
+    
+    // Use optimized services if environment variable is set
+    const useOptimized = process.env.USE_OPTIMIZED_SERVICES === 'true';
+    if (useOptimized) {
+      this.logger.info('Using optimized services (includes caching and partial updates)');
+    }
+    
+    this.servicesContainer = new ServicesContainer(this.logger, useOptimized);
     this.services = this.servicesContainer.getServices();
 
     this.setupMiddleware();
@@ -201,6 +208,25 @@ export class UnityMCPHttpServer {
           content
         );
         res.json(result);
+      } catch (error) {
+        this.handleError(error, res);
+      }
+    });
+
+    // Partial script update endpoint
+    this.app.patch('/api/asset/update-script-partial', async (req, res) => {
+      try {
+        const { fileName, patches } = req.body;
+        
+        // Check if the service supports partial updates
+        if (typeof this.services.scriptService.updateScriptPartial === 'function') {
+          const result = await this.services.scriptService.updateScriptPartial(fileName, patches);
+          res.json(result);
+        } else {
+          res.status(501).json({ 
+            error: 'Partial updates not supported. Enable optimized services to use this feature.' 
+          });
+        }
       } catch (error) {
         this.handleError(error, res);
       }

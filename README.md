@@ -68,11 +68,19 @@ Add to your Claude Desktop configuration file:
   "mcpServers": {
     "mcp-server-unity": {
       "command": "node",
-      "args": ["/absolute/path/to/unity-mcp/build/index.js"]
+      "args": ["/absolute/path/to/unity-mcp/build/index.js"],
+      "env": {
+        "USE_OPTIMIZED_SERVICES": "true"
+      }
     }
   }
 }
 ```
+
+**Performance Note**: Set `USE_OPTIMIZED_SERVICES=true` to enable:
+- File caching (up to 100x faster file searches)
+- Partial script updates for small changes
+- Improved timeout handling for large projects
 
 Then use natural language in Claude Desktop:
 - "Set Unity project to /path/to/project"
@@ -83,9 +91,14 @@ Then use natural language in Claude Desktop:
 
 1. **Start the HTTP server:**
 ```bash
+# Standard mode
 npm run start:http
+
+# Optimized mode (recommended for large projects)
+npm run start:http:optimized
+
 # or specify a custom port
-PORT=8080 npm run start:http
+PORT=8080 npm run start:http:optimized
 ```
 
 2. **Set up your Unity project:**
@@ -117,6 +130,8 @@ curl -X POST http://localhost:3000/api/ai/analyze \
 - `POST /api/ai/analyze` - Analyze requirements
 - `POST /api/system/player-controller` - Generate player controller
 - `POST /api/asset/create-script` - Create C# scripts
+- `PUT /api/asset/update-script` - Update entire script
+- `PATCH /api/asset/update-script-partial` - Partial script update (optimized mode only)
 - `POST /api/batch` - Execute batch operations
 
 ## Usage Examples
