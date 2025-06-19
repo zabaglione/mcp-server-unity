@@ -4,6 +4,7 @@ import { BaseService } from './base-service.js';
 import path from 'path';
 import fs from 'fs/promises';
 import yaml from 'js-yaml';
+import { dumpMaterialYAML, formatMaterialYAML } from '../utils/yaml-utils.js';
 import { UnityMetaGenerator } from '../utils/unity-meta-generator.js';
 import { 
   shouldUseStreaming, 
@@ -82,7 +83,7 @@ export class MaterialService extends BaseService {
       this.logger.info(`Writing large material file (${Math.round(contentSize / 1024 / 1024)}MB) using streaming...`);
       await writeLargeFile(materialPath, content);
     } else {
-      await this.writeMaterialFile(materialPath, content);
+      await fs.writeFile(materialPath, content, 'utf-8');
     }
   }
 
@@ -214,18 +215,8 @@ export class MaterialService extends BaseService {
     }
 
     // Write updated material
-    const updatedContent = yaml.dump(materialData, {
-      lineWidth: -1,
-      noRefs: true,
-      flowLevel: 3,
-      styles: {
-        '!!int': 'decimal',
-        '!!float': 'decimal'
-      }
-    });
-
-    // Ensure Unity YAML header and tags
-    const finalContent = '%YAML 1.1\n%TAG !u! tag:unity3d.com,2011:\n--- !u!21 &2100000\n' + updatedContent;
+    const updatedContent = dumpMaterialYAML(materialData);
+    const finalContent = formatMaterialYAML(updatedContent);
     await this.writeMaterialFile(materialPath, finalContent);
 
     this.logger.info(`Updated shader for material: ${materialName} to ${shaderName}`);
@@ -304,17 +295,8 @@ export class MaterialService extends BaseService {
     }
 
     // Write updated material
-    const updatedContent = yaml.dump(materialData, {
-      lineWidth: -1,
-      noRefs: true,
-      flowLevel: 3,
-      styles: {
-        '!!int': 'decimal',
-        '!!float': 'decimal'
-      }
-    });
-
-    const finalContent = '%YAML 1.1\n%TAG !u! tag:unity3d.com,2011:\n--- !u!21 &2100000\n' + updatedContent;
+    const updatedContent = dumpMaterialYAML(materialData);
+    const finalContent = formatMaterialYAML(updatedContent);
     await this.writeMaterialFile(materialPath, finalContent);
 
     this.logger.info(`Updated properties for material: ${materialName}`);
@@ -701,17 +683,8 @@ export class MaterialService extends BaseService {
     savedProps.m_TexEnvs = newTexEnvs;
 
     // Write updated material
-    const updatedContent = yaml.dump(materialData, {
-      lineWidth: -1,
-      noRefs: true,
-      flowLevel: 3,
-      styles: {
-        '!!int': 'decimal',
-        '!!float': 'decimal'
-      }
-    });
-
-    const finalContent = '%YAML 1.1\n%TAG !u! tag:unity3d.com,2011:\n--- !u!21 &2100000\n' + updatedContent;
+    const updatedContent = dumpMaterialYAML(materialData);
+    const finalContent = formatMaterialYAML(updatedContent);
     await this.writeMaterialFile(materialPath, finalContent);
   }
 

@@ -8,6 +8,7 @@ import { BaseService } from './base-service.js';
 import { pathExists, ensureDirectory } from '../utils/file-utils.js';
 import { UnityDetector } from '../utils/unity-detector.js';
 import { CompilationAnalyzer } from '../utils/compilation-analyzer.js';
+import { UnitySimpleDiagnostics } from './unity-simple-diagnostics.js';
 
 const execAsync = promisify(exec);
 
@@ -22,11 +23,13 @@ interface UnityLogEntry {
 export class UnityDiagnosticsService extends BaseService {
   private unityExecutablePath: string | null = null;
   private compilationAnalyzer: CompilationAnalyzer;
+  private simpleDiagnostics: UnitySimpleDiagnostics;
 
   constructor(logger: Logger) {
     super(logger);
     UnityDetector.setLogger(logger);
     this.compilationAnalyzer = new CompilationAnalyzer(logger);
+    this.simpleDiagnostics = new UnitySimpleDiagnostics(logger);
   }
 
   /**
@@ -126,6 +129,13 @@ export class UnityDiagnosticsService extends BaseService {
     // First, try to get compilation state without launching Unity
     const compilationState = await this.compilationAnalyzer.analyzeCompilationState(projectPath);
     
+    // Also try the simple diagnostics approach
+    const simpleErrors = await this.simpleDiagnostics.getDirectCompilationErrors(projectPath);
+    
+    // Merge errors from both sources
+    const allErrors = [...compilationState.errors, ...simpleErrors];
+    const uniqueErrors = this.deduplicateErrors(allErrors);
+    
     if (compilationState.isCompiling) {
       return {
         content: [{
@@ -136,15 +146,15 @@ export class UnityDiagnosticsService extends BaseService {
     }
 
     // If we have recent errors and not forcing recompile, return them
-    if (!forceRecompile && compilationState.errors.length > 0) {
+    if (!forceRecompile && uniqueErrors.length > 0) {
       let summary = `Compilation State (Cached)\n`;
       summary += `==========================\n`;
-      summary += `Has Errors: ${compilationState.hasErrors}\n`;
-      summary += `Total Errors: ${compilationState.errors.length}\n\n`;
+      summary += `Has Errors: true\n`;
+      summary += `Total Errors: ${uniqueErrors.length}\n\n`;
 
-      if (compilationState.errors.length > 0) {
+      if (uniqueErrors.length > 0) {
         summary += `Compilation Errors:\n`;
-        compilationState.errors.forEach((error, i) => {
+        uniqueErrors.forEach((error, i) => {
           summary += `\n${i + 1}. ${error.file}(${error.line},${error.column}): ${error.errorCode}\n`;
           summary += `   ${error.message}\n`;
           summary += `   Severity: ${error.severity}\n`;
@@ -196,25 +206,28 @@ export class UnityDiagnosticsService extends BaseService {
       }
     }
 
-    // Force compilation using Unity
+    // Force compilation using Unity with improved error handling
     const args = [
       '-batchmode',
-      '-quit',
+      '-quit', 
       '-projectPath', projectPath,
-      '-executeMethod', 'UnityEditor.SyncVS.SyncSolution'
+      '-executeMethod', 'UnityEditor.AssetDatabase.Refresh',
+      '-logFile', path.join(projectPath, 'Temp', 'mcp_compilation.log')
     ];
 
-    if (forceRecompile) {
-      args.push('-forceCompile');
-    }
-
     try {
+      // Try a simpler approach first - just refresh assets
       await execAsync(
         `"${this.unityExecutablePath}" ${args.join(' ')}`,
-        { maxBuffer: 10 * 1024 * 1024 } // 10MB buffer
+        { 
+          maxBuffer: 10 * 1024 * 1024,
+          timeout: 30000 // 30 second timeout
+        }
       );
 
       // After Unity runs, analyze the compilation state again
+      // Wait a bit for Unity to finish writing files
+      await new Promise(resolve => setTimeout(resolve, 1000));
       const newState = await this.compilationAnalyzer.analyzeCompilationState(projectPath);
       
       let summary = `Compilation Result\n`;
@@ -239,7 +252,12 @@ export class UnityDiagnosticsService extends BaseService {
         }]
       };
     } catch (error) {
-      // Even if Unity fails, try to get errors from the file system
+      // Unity batch mode often returns non-zero exit codes even on success
+      // So we always try to get errors from the file system
+      this.logger.warn('Unity batch mode exited with error (this is often normal)');
+      
+      // Wait a bit and try to get errors from the file system
+      await new Promise(resolve => setTimeout(resolve, 1000));
       const fallbackState = await this.compilationAnalyzer.analyzeCompilationState(projectPath);
       
       if (fallbackState.errors.length > 0) {
@@ -709,6 +727,16 @@ export class UnityDiagnosticsService extends BaseService {
     return entries;
   }
 
+
+  private deduplicateErrors(errors: any[]): any[] {
+    const seen = new Set<string>();
+    return errors.filter(error => {
+      const key = `${error.file}:${error.line}:${error.message}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
 
   private async getAllFiles(dir: string): Promise<string[]> {
     const files: string[] = [];

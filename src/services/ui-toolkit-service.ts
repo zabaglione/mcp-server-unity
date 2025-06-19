@@ -23,7 +23,7 @@ export class UIToolkitService extends BaseService {
       this.logger.info(`Writing large UI file (${Math.round(contentSize / 1024 / 1024)}MB) using streaming...`);
       await writeLargeFile(filePath, content);
     } else {
-      await this.writeUIFile(filePath, content);
+      await fs.writeFile(filePath, content, 'utf-8');
     }
   }
 
@@ -36,7 +36,7 @@ export class UIToolkitService extends BaseService {
       this.logger.info(`Reading large UI file (${Math.round(stats.size / 1024 / 1024)}MB) using streaming...`);
       return await readLargeFile(filePath);
     } else {
-      return await this.readUIFile(filePath);
+      return await fs.readFile(filePath, 'utf-8');
     }
   }
   /**

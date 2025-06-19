@@ -123,20 +123,75 @@ namespace MCP.Diagnostics
                 hasErrors = EditorUtility.scriptCompilationFailed
             };
             
-            // Get current compilation errors from Unity's internal state
-            // This is a simplified version - in production you'd want more detailed error collection
-            if (result.hasErrors)
+            // Try to get compilation errors from CompilationPipeline
+            var assemblies = CompilationPipeline.GetAssemblies();
+            
+            foreach (var assembly in assemblies)
             {
-                result.errors = new List<CompilationError>
+                // Check if there's a compilation log file for this assembly
+                var logPath = Path.Combine("Temp", $"Assembly-{assembly.name}-Editor.log");
+                if (File.Exists(logPath))
                 {
-                    new CompilationError
+                    var logContent = File.ReadAllText(logPath);
+                    var errors = ParseCompilationLog(logContent);
+                    result.errors.AddRange(errors);
+                }
+            }
+            
+            // Also check Unity's Temp folder for error files
+            if (Directory.Exists("Temp"))
+            {
+                var errorFiles = Directory.GetFiles("Temp", "*.rsp.error");
+                foreach (var errorFile in errorFiles)
+                {
+                    try
                     {
-                        message = "Script compilation failed. Check Unity Console for details."
+                        var content = File.ReadAllText(errorFile);
+                        var errors = ParseCompilationLog(content);
+                        result.errors.AddRange(errors);
                     }
-                };
+                    catch { }
+                }
+            }
+            
+            // If no specific errors found but compilation failed, add generic message
+            if (result.hasErrors && result.errors.Count == 0)
+            {
+                result.errors.Add(new CompilationError
+                {
+                    message = "Script compilation failed. Check Unity Console for details."
+                });
             }
             
             return result;
+        }
+        
+        private static List<CompilationError> ParseCompilationLog(string logContent)
+        {
+            var errors = new List<CompilationError>();
+            var lines = logContent.Split('\n');
+            
+            foreach (var line in lines)
+            {
+                // Parse C# compiler error format: file(line,column): error CS0000: message
+                var match = System.Text.RegularExpressions.Regex.Match(
+                    line, 
+                    @"(.+)\((\d+),(\d+)\):\s*(error|warning)\s+(\w+):\s*(.+)"
+                );
+                
+                if (match.Success)
+                {
+                    errors.Add(new CompilationError
+                    {
+                        file = match.Groups[1].Value,
+                        line = int.Parse(match.Groups[2].Value),
+                        column = int.Parse(match.Groups[3].Value),
+                        message = match.Groups[6].Value.Trim()
+                    });
+                }
+            }
+            
+            return errors;
         }
         
         private static AssetValidationResult ValidateAssets()

@@ -131,8 +131,22 @@ export class CompilationAnalyzer {
       const consoleErrors = await this.extractErrorsFromConsoleLog(consoleLogPath);
       errors.push(...consoleErrors);
     }
+    
+    // 4. Check Bee fullprofile.json for detailed errors
+    const fullprofilePath = path.join(projectPath, 'Library', 'Bee', 'fullprofile.json');
+    if (await pathExists(fullprofilePath)) {
+      const profileErrors = await this.extractErrorsFromFullProfile(fullprofilePath);
+      errors.push(...profileErrors);
+    }
+    
+    // 5. Check MCP diagnostics output if available
+    const mcpErrors = await this.getStoredCompilationErrors(projectPath);
+    errors.push(...mcpErrors);
 
-    return errors;
+    // Deduplicate errors based on file/line/column
+    const uniqueErrors = this.deduplicateErrors(errors);
+    
+    return uniqueErrors;
   }
 
   /**
@@ -313,5 +327,72 @@ export class CompilationAnalyzer {
     } catch (error) {
       return [];
     }
+  }
+  
+  /**
+   * Extract errors from Bee's fullprofile.json
+   */
+  private async extractErrorsFromFullProfile(profilePath: string): Promise<CompilationError[]> {
+    const errors: CompilationError[] = [];
+    
+    try {
+      const content = await fs.readFile(profilePath, 'utf-8');
+      const profile = JSON.parse(content);
+      
+      // Look for compilation failures in the profile
+      if (profile.failures && Array.isArray(profile.failures)) {
+        for (const failure of profile.failures) {
+          if (failure.messages && Array.isArray(failure.messages)) {
+            for (const msg of failure.messages) {
+              const error = this.parseProfileMessage(msg);
+              if (error) {
+                errors.push(error);
+              }
+            }
+          }
+        }
+      }
+    } catch (error) {
+      this.logger.debug('Could not parse fullprofile.json');
+    }
+    
+    return errors;
+  }
+  
+  /**
+   * Parse error message from Bee profile format
+   */
+  private parseProfileMessage(message: any): CompilationError | null {
+    if (typeof message === 'string') {
+      return this.parseCompilerOutput(message)[0] || null;
+    }
+    
+    if (message.file && message.message) {
+      return {
+        file: message.file,
+        line: message.line || 0,
+        column: message.column || 0,
+        severity: message.severity || 'error',
+        errorCode: message.code || 'CS0000',
+        message: message.message
+      };
+    }
+    
+    return null;
+  }
+  
+  /**
+   * Deduplicate compilation errors
+   */
+  private deduplicateErrors(errors: CompilationError[]): CompilationError[] {
+    const seen = new Set<string>();
+    return errors.filter(error => {
+      const key = `${error.file}:${error.line}:${error.column}:${error.message}`;
+      if (seen.has(key)) {
+        return false;
+      }
+      seen.add(key);
+      return true;
+    });
   }
 }
