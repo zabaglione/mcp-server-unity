@@ -14,6 +14,7 @@ import { MaterialService } from './material-service.js';
 import { CodeAnalysisService } from './code-analysis-service.js';
 import { CompilationService } from './compilation-service.js';
 import { EnhancedCompilationService } from './enhanced-compilation-service.js';
+import { StandaloneCompilationService } from './standalone-compilation-service.js';
 import { UIToolkitService } from './ui-toolkit-service.js';
 import { FileOperationsService } from './file-operations-service.js';
 
@@ -31,6 +32,7 @@ export interface Services {
   materialService: MaterialService;
   codeAnalysisService: CodeAnalysisService;
   compilationService: CompilationService;
+  standaloneCompilationService: StandaloneCompilationService;
   uiToolkitService: UIToolkitService;
   fileOperationsService: FileOperationsService;
 }
@@ -58,6 +60,7 @@ export class ServiceFactory {
       : new CompilationService(logger);
     const uiToolkitService = new UIToolkitService(logger);
     const fileOperationsService = new FileOperationsService(logger);
+    const standaloneCompilationService = new StandaloneCompilationService(logger);
 
     // Set cross-service dependencies
     materialService.setShaderService(shaderService);
@@ -73,7 +76,8 @@ export class ServiceFactory {
       gameSystemService,
       aiAutomationService,
       fileOperationsService,
-      compilationService
+      compilationService,
+      standaloneCompilationService
     ];
     
     for (const service of fileOperationServices) {
@@ -94,6 +98,7 @@ export class ServiceFactory {
       materialService,
       codeAnalysisService,
       compilationService,
+      standaloneCompilationService,
       uiToolkitService,
       fileOperationsService,
     };
@@ -125,6 +130,7 @@ export class ServiceFactory {
         services.materialService.setUnityProject(project);
         services.codeAnalysisService.setUnityProject(project);
         services.compilationService.setUnityProject(project);
+        services.standaloneCompilationService.setUnityProject(project);
         services.uiToolkitService.setUnityProject(project);
         services.fileOperationsService.setUnityProject(project);
         
@@ -141,7 +147,8 @@ export class ServiceFactory {
           services.gameSystemService,
           services.aiAutomationService,
           services.fileOperationsService,
-          services.compilationService
+          services.compilationService,
+          services.standaloneCompilationService
         ];
         
         for (const service of fileOperationServices) {

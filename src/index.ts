@@ -353,6 +353,57 @@ class UnityMCPServer {
           },
         },
         {
+          name: 'standalone_compile_scripts',
+          description: 'Compile Unity scripts directly using system C# compiler (Roslyn/mcs)',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              scriptPaths: {
+                type: 'array',
+                items: { type: 'string' },
+                description: 'Specific script paths to compile (optional, defaults to all scripts)',
+              },
+              outputPath: {
+                type: 'string',
+                description: 'Output path for compiled assembly (optional)',
+              },
+              target: {
+                type: 'string',
+                enum: ['library', 'executable'],
+                description: 'Compilation target type',
+                default: 'library',
+              },
+              includeUnityReferences: {
+                type: 'boolean',
+                description: 'Include Unity engine references',
+                default: true,
+              },
+              additionalReferences: {
+                type: 'array',
+                items: { type: 'string' },
+                description: 'Additional assembly references',
+              },
+              defines: {
+                type: 'array',
+                items: { type: 'string' },
+                description: 'Preprocessor defines (optional)',
+              },
+              framework: {
+                type: 'string',
+                description: 'Target framework (optional)',
+              },
+            },
+          },
+        },
+        {
+          name: 'standalone_compilation_capabilities',
+          description: 'Check standalone compilation capabilities (available compilers, references, etc.)',
+          inputSchema: {
+            type: 'object',
+            properties: {},
+          },
+        },
+        {
           name: 'diagnostics_validate_assets',
           description: 'Validate asset integrity (missing meta files, orphaned assets, etc.)',
           inputSchema: {
@@ -845,6 +896,47 @@ class UnityMCPServer {
             properties: {},
           },
         },
+        // Standalone Compilation Tools
+        {
+          name: 'standalone_compile_scripts',
+          description: 'Compile Unity scripts directly using system C# compiler (independent of Unity Editor)',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              outputPath: {
+                type: 'string',
+                description: 'Custom output path for compiled assembly (optional)',
+              },
+              targetFramework: {
+                type: 'string',
+                description: 'Target .NET framework version (optional)',
+              },
+              additionalReferences: {
+                type: 'array',
+                description: 'Additional assembly references (optional)',
+                items: { type: 'string' },
+              },
+              defines: {
+                type: 'array',
+                description: 'Preprocessor defines (optional)',
+                items: { type: 'string' },
+              },
+              includeTestAssemblies: {
+                type: 'boolean',
+                description: 'Include test and editor assemblies in compilation',
+                default: false,
+              },
+            },
+          },
+        },
+        {
+          name: 'standalone_compilation_capabilities',
+          description: 'Check available C# compilers and Unity assemblies for standalone compilation',
+          inputSchema: {
+            type: 'object',
+            properties: {},
+          },
+        },
         // UI Toolkit Tools
         /*{
           name: 'ui_create_uxml',
@@ -1237,6 +1329,12 @@ class UnityMCPServer {
           case 'diagnostics_compile_scripts':
             return await this.services.diagnosticsService.compileScripts(args?.forceRecompile);
 
+          case 'standalone_compile_scripts':
+            return await this.services.standaloneCompilationService.compileScripts(args || {});
+
+          case 'standalone_compilation_capabilities':
+            return await this.services.standaloneCompilationService.getCompilationCapabilities();
+
           case 'diagnostics_validate_assets':
             return await this.services.diagnosticsService.validateAssets();
 
@@ -1452,6 +1550,19 @@ class UnityMCPServer {
 
           case 'compile_install_helper':
             return await this.services.compilationService.installCompilationHelper();
+
+          // Standalone Compilation Tools
+          case 'standalone_compile_scripts':
+            return await this.services.standaloneCompilationService.compileScripts({
+              outputPath: args?.outputPath,
+              targetFramework: args?.targetFramework,
+              additionalReferences: args?.additionalReferences,
+              defines: args?.defines,
+              includeTestAssemblies: args?.includeTestAssemblies || false
+            });
+
+          case 'standalone_compilation_capabilities':
+            return await this.services.standaloneCompilationService.getCompilationCapabilities();
 
           // UI Toolkit Tools
           /*case 'ui_create_uxml':
