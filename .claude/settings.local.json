@@ -47,7 +47,9 @@
       "Bash(rg:*)",
       "Bash(NODE_OPTIONS=--experimental-vm-modules npx jest tests/unit/utils/stream-file-utils.test.ts)",
       "Bash(NODE_OPTIONS=--experimental-vm-modules npx jest tests/unit/utils/stream-file-utils.test.ts --verbose)",
-      "Bash(USE_OPTIMIZED_SERVICES=true node build/index.js --help 2 >& 1)"
+      "Bash(USE_OPTIMIZED_SERVICES=true node build/index.js --help 2 >& 1)",
+      "Bash(sed:*)",
+      "WebFetch(domain:docs.unity3d.com)"
     ],
     "deny": []
   }

@@ -168,9 +168,11 @@ export class OptimizedScriptService extends ScriptService {
     const originalContent = await fs.readFile(scriptPath, 'utf-8');
     const { hasUTF8BOM, removeUTF8BOM, ensureUTF8BOM } = await import('../utils/utf8-utils.js');
     
-    // Detect and preserve BOM
+    // Detect BOM presence but DON'T remove it yet
     const hadBOM = hasUTF8BOM(originalContent);
-    let content = removeUTF8BOM(originalContent);
+    
+    // Apply patches directly to the original content (including BOM if present)
+    let content = originalContent;
     
     // Apply patches in reverse order to maintain indices
     const sortedPatches = patches.sort((a, b) => b.start - a.start);
@@ -178,20 +180,24 @@ export class OptimizedScriptService extends ScriptService {
     for (const patch of sortedPatches) {
       // Validate patch boundaries
       if (patch.start < 0 || patch.end > content.length || patch.start > patch.end) {
-        throw new Error(`Invalid patch range: ${patch.start}-${patch.end}`);
+        throw new Error(`Invalid patch range: ${patch.start}-${patch.end} (content length: ${content.length})`);
       }
       
-      // Ensure we're not splitting UTF-8 characters
-      // In JavaScript, string indices are character-based, not byte-based
-      // So this is safe as long as the patches use character positions
+      // Log patch details for debugging
+      this.logger.debug(`Applying patch: start=${patch.start}, end=${patch.end}, replacement="${patch.replacement.substring(0, 50)}..."`);
+      this.logger.debug(`Original text: "${content.substring(patch.start, patch.end)}"`);
+      
+      // Apply the patch
       content = content.substring(0, patch.start) + 
                 patch.replacement + 
                 content.substring(patch.end);
     }
     
-    // Restore BOM if it was present
-    if (hadBOM) {
+    // Ensure BOM consistency
+    if (hadBOM && !hasUTF8BOM(content)) {
       content = ensureUTF8BOM(content);
+    } else if (!hadBOM && hasUTF8BOM(content)) {
+      content = removeUTF8BOM(content);
     }
     
     // Write updated content atomically
