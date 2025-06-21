@@ -159,15 +159,39 @@ export class ScriptService extends BaseService {
 
     const scriptPath = scriptFiles[0];
 
-    // Use streaming for large files
-    const contentSize = Buffer.byteLength(content, 'utf8');
+    // Read original to preserve BOM if present
+    let originalContent: string | null = null;
+    try {
+      const stats = await fs.stat(scriptPath);
+      if (stats.size < FILE_SIZE_THRESHOLDS.STREAMING_THRESHOLD) {
+        originalContent = await fs.readFile(scriptPath, 'utf-8');
+      }
+    } catch {
+      // File doesn't exist or can't be read, that's ok
+    }
+
+    // Preserve BOM if original file had it
+    let finalContent = content;
+    if (originalContent !== null) {
+      const { preserveBOM } = await import('../utils/utf8-utils.js');
+      finalContent = preserveBOM(originalContent, content);
+    }
+
+    // Use atomic write to prevent corruption
+    const { writeFileAtomic } = await import('../utils/atomic-write.js');
+    const contentSize = Buffer.byteLength(finalContent, 'utf8');
+    
     if (contentSize > FILE_SIZE_THRESHOLDS.STREAMING_THRESHOLD) {
       this.logger.info(`Updating large script file (${Math.round(contentSize / 1024 / 1024)}MB) using streaming...`);
-      await writeLargeFile(scriptPath, content);
-    } else {
-      await fs.writeFile(scriptPath, content, 'utf-8');
     }
+    
+    await writeFileAtomic(scriptPath, finalContent, 'utf-8');
     this.logger.info(`Updated script: ${scriptPath}`);
+
+    // Trigger Unity refresh if available
+    if (this.refreshService) {
+      await this.refreshService.refreshUnityAssets();
+    }
 
     return {
       content: [

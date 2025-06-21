@@ -2,12 +2,16 @@ import { Logger } from '../types/index.js';
 import { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { BaseService } from './base-service.js';
 import { ensureDirectory } from '../utils/file-utils.js';
+import { MetaFileManager } from '../utils/meta-file-manager.js';
 import path from 'path';
 import fs from 'fs/promises';
 
 export class GameSystemService extends BaseService {
+  private metaFileManager: MetaFileManager;
+
   constructor(logger: Logger) {
     super(logger);
+    this.metaFileManager = new MetaFileManager(logger);
   }
 
   /**
@@ -25,12 +29,21 @@ export class GameSystemService extends BaseService {
 
     await ensureDirectory(path.dirname(filePath));
     await fs.writeFile(filePath, template, 'utf-8');
+    
+    // Generate meta file
+    await this.metaFileManager.generateMetaFile(filePath);
 
     // Create additional required scripts
     const additionalScripts = this.getAdditionalPlayerScripts(gameType, requirements);
     for (const [name, content] of Object.entries(additionalScripts)) {
       const scriptPath = path.join(this.unityProject!.scriptsPath, 'Player', name);
       await fs.writeFile(scriptPath, content, 'utf-8');
+      await this.metaFileManager.generateMetaFile(scriptPath);
+    }
+
+    // Trigger Unity refresh if available
+    if (this.refreshService) {
+      await this.refreshService.refreshUnityAssets();
     }
 
     return {
@@ -59,6 +72,14 @@ export class GameSystemService extends BaseService {
 
     await ensureDirectory(path.dirname(filePath));
     await fs.writeFile(filePath, template, 'utf-8');
+    
+    // Generate meta file
+    await this.metaFileManager.generateMetaFile(filePath);
+
+    // Trigger Unity refresh if available
+    if (this.refreshService) {
+      await this.refreshService.refreshUnityAssets();
+    }
 
     return {
       content: [{
@@ -86,12 +107,14 @@ export class GameSystemService extends BaseService {
     const uiManagerPath = path.join(this.unityProject!.scriptsPath, 'UI', 'UIManager.cs');
     await ensureDirectory(path.dirname(uiManagerPath));
     await fs.writeFile(uiManagerPath, uiManagerTemplate, 'utf-8');
+    await this.metaFileManager.generateMetaFile(uiManagerPath);
     createdFiles.push('UIManager.cs');
 
     // Create base screen class
     const baseScreenTemplate = this.generateBaseScreenTemplate();
     const baseScreenPath = path.join(this.unityProject!.scriptsPath, 'UI', 'BaseScreen.cs');
     await fs.writeFile(baseScreenPath, baseScreenTemplate, 'utf-8');
+    await this.metaFileManager.generateMetaFile(baseScreenPath);
     createdFiles.push('BaseScreen.cs');
 
     // Create individual screens
@@ -101,6 +124,7 @@ export class GameSystemService extends BaseService {
       const screenPath = path.join(this.unityProject!.scriptsPath, 'UI', 'Screens', screenName);
       await ensureDirectory(path.dirname(screenPath));
       await fs.writeFile(screenPath, screenTemplate, 'utf-8');
+      await this.metaFileManager.generateMetaFile(screenPath);
       createdFiles.push(`Screens/${screenName}`);
     }
 
@@ -130,6 +154,7 @@ export class GameSystemService extends BaseService {
 
     await ensureDirectory(path.dirname(filePath));
     await fs.writeFile(filePath, template, 'utf-8');
+    await this.metaFileManager.generateMetaFile(filePath);
 
     // Create audio mixer settings
     const mixerTemplate = this.generateAudioMixerTemplate();
@@ -140,6 +165,12 @@ export class GameSystemService extends BaseService {
     );
     await ensureDirectory(path.dirname(mixerPath));
     await fs.writeFile(mixerPath, mixerTemplate, 'utf-8');
+    await this.metaFileManager.generateMetaFile(mixerPath);
+
+    // Trigger Unity refresh if available
+    if (this.refreshService) {
+      await this.refreshService.refreshUnityAssets();
+    }
 
     return {
       content: [{

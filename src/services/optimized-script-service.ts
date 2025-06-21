@@ -11,8 +11,7 @@ import {
 } from '../utils/optimized-file-utils.js';
 import {
   shouldUseStreaming,
-  readLargeFile,
-  writeLargeFile
+  readLargeFile
 } from '../utils/stream-file-utils.js';
 
 interface UpdatePatch {
@@ -101,18 +100,40 @@ export class OptimizedScriptService extends ScriptService {
       throw new Error(`Script not found: ${fileName}`);
     }
 
-    // Use streaming for large files (lower threshold for better performance)
-    const contentSize = Buffer.byteLength(content, 'utf8');
+    // Read original to preserve BOM if present
+    let originalContent: string | null = null;
+    try {
+      const stats = await fs.stat(scriptPath);
+      if (stats.size < 10 * 1024 * 1024) { // 10MB threshold
+        originalContent = await fs.readFile(scriptPath, 'utf-8');
+      }
+    } catch {
+      // File doesn't exist or can't be read, that's ok
+    }
+
+    // Preserve BOM if original file had it
+    let finalContent = content;
+    if (originalContent !== null) {
+      const { preserveBOM } = await import('../utils/utf8-utils.js');
+      finalContent = preserveBOM(originalContent, content);
+    }
+
+    // Use atomic write to prevent corruption
+    const { writeFileAtomic } = await import('../utils/atomic-write.js');
+    const contentSize = Buffer.byteLength(finalContent, 'utf8');
     const streamingThreshold = 1 * 1024 * 1024; // 1MB instead of 10MB
     
     if (contentSize > streamingThreshold) {
       this.logger.info(`Updating large script file (${Math.round(contentSize / 1024 / 1024)}MB) using streaming...`);
-      await writeLargeFile(scriptPath, content);
-    } else {
-      await fs.writeFile(scriptPath, content, 'utf-8');
     }
     
+    await writeFileAtomic(scriptPath, finalContent, 'utf-8');
     this.logger.info(`Updated script: ${scriptPath}`);
+
+    // Trigger Unity refresh if available
+    if (this.refreshService) {
+      await this.refreshService.refreshUnityAssets();
+    }
 
     return {
       content: [{
@@ -144,25 +165,45 @@ export class OptimizedScriptService extends ScriptService {
     }
 
     // Read current content
-    let content = await fs.readFile(scriptPath, 'utf-8');
+    const originalContent = await fs.readFile(scriptPath, 'utf-8');
+    const { hasUTF8BOM, removeUTF8BOM, ensureUTF8BOM } = await import('../utils/utf8-utils.js');
+    
+    // Detect and preserve BOM
+    const hadBOM = hasUTF8BOM(originalContent);
+    let content = removeUTF8BOM(originalContent);
     
     // Apply patches in reverse order to maintain indices
     const sortedPatches = patches.sort((a, b) => b.start - a.start);
     
     for (const patch of sortedPatches) {
+      // Validate patch boundaries
       if (patch.start < 0 || patch.end > content.length || patch.start > patch.end) {
         throw new Error(`Invalid patch range: ${patch.start}-${patch.end}`);
       }
       
+      // Ensure we're not splitting UTF-8 characters
+      // In JavaScript, string indices are character-based, not byte-based
+      // So this is safe as long as the patches use character positions
       content = content.substring(0, patch.start) + 
                 patch.replacement + 
                 content.substring(patch.end);
     }
     
-    // Write updated content
-    await fs.writeFile(scriptPath, content, 'utf-8');
+    // Restore BOM if it was present
+    if (hadBOM) {
+      content = ensureUTF8BOM(content);
+    }
+    
+    // Write updated content atomically
+    const { writeFileAtomic } = await import('../utils/atomic-write.js');
+    await writeFileAtomic(scriptPath, content, 'utf-8');
     
     this.logger.info(`Applied ${patches.length} patches to script: ${scriptPath}`);
+
+    // Trigger Unity refresh if available
+    if (this.refreshService) {
+      await this.refreshService.refreshUnityAssets();
+    }
 
     return {
       content: [{
@@ -218,29 +259,19 @@ export class OptimizedScriptService extends ScriptService {
       throw new Error(`Script not found: ${fileName}`);
     }
 
-    // Create read and write streams
-    const tempPath = `${scriptPath}.tmp`;
-    const readStream = (await import('fs')).createReadStream(scriptPath, { encoding: 'utf8' });
-    const writeStream = (await import('fs')).createWriteStream(tempPath, { encoding: 'utf8' });
-
-    // Transform chunks
-    readStream.on('data', (chunk) => {
-      const chunkStr = typeof chunk === 'string' ? chunk : chunk.toString('utf8');
-      writeStream.write(transformer(chunkStr));
-    });
-
-    // Wait for completion
-    await new Promise<void>((resolve, reject) => {
-      readStream.on('end', () => resolve());
-      readStream.on('error', reject);
-      writeStream.on('error', reject);
-    });
-
-    // Close streams
-    writeStream.end();
-
-    // Replace original file
-    await fs.rename(tempPath, scriptPath);
+    // For streaming transforms, we need to handle UTF-8 boundaries properly
+    // So we'll read the entire file and transform it
+    const content = await readLargeFile(scriptPath);
+    const transformedContent = transformer(content);
+    
+    // Write atomically
+    const { writeFileAtomic } = await import('../utils/atomic-write.js');
+    await writeFileAtomic(scriptPath, transformedContent, 'utf-8');
+    
+    // Trigger Unity refresh if available
+    if (this.refreshService) {
+      await this.refreshService.refreshUnityAssets();
+    }
 
     return {
       content: [{

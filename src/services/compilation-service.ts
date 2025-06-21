@@ -1,6 +1,8 @@
 import { Logger } from '../types/index.js';
 import { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { BaseService } from './base-service.js';
+import { MetaFileManager } from '../utils/meta-file-manager.js';
+import { ensureDirectory, pathExists } from '../utils/file-utils.js';
 import path from 'path';
 import fs from 'fs/promises';
 
@@ -14,9 +16,11 @@ interface CompilationError {
 }
 
 export class CompilationService extends BaseService {
+  private metaFileManager: MetaFileManager;
   
   constructor(logger: Logger) {
     super(logger);
+    this.metaFileManager = new MetaFileManager(logger);
   }
 
   /**
@@ -93,7 +97,7 @@ export class CompilationService extends BaseService {
     this.ensureProjectSet();
 
     const editorPath = path.join(this.unityProject!.assetsPath, 'Editor');
-    await this.ensureDirectory(editorPath);
+    await ensureDirectory(editorPath);
 
     const helperPath = path.join(editorPath, 'CompilationHelper.cs');
     
@@ -253,6 +257,14 @@ namespace UnityMCP.Editor
 }`;
 
     await fs.writeFile(helperPath, helperContent, 'utf-8');
+    
+    // Generate meta file
+    await this.metaFileManager.generateMetaFile(helperPath);
+
+    // Trigger Unity refresh if available
+    if (this.refreshService) {
+      await this.refreshService.refreshUnityAssets();
+    }
 
     return {
       content: [{
@@ -425,15 +437,6 @@ namespace UnityMCP.Editor
   }
 
   private async fileExists(filePath: string): Promise<boolean> {
-    try {
-      await fs.access(filePath);
-      return true;
-    } catch {
-      return false;
-    }
-  }
-
-  private async ensureDirectory(dirPath: string): Promise<void> {
-    await fs.mkdir(dirPath, { recursive: true });
+    return pathExists(filePath);
   }
 }

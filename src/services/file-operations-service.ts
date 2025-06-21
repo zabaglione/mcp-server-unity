@@ -250,15 +250,15 @@ export class FileOperationsService extends BaseService {
       const destPath = path.join(dest, item.name);
 
       if (item.isDirectory()) {
-        // Recursively move subdirectory
-        await this.moveFolderRecursive(sourcePath, destPath);
-        
-        // Move directory's .meta file
+        // Move directory's .meta file BEFORE moving the directory itself
         const sourceMetaPath = `${sourcePath}.meta`;
         const destMetaPath = `${destPath}.meta`;
         if (await pathExists(sourceMetaPath)) {
           await fs.rename(sourceMetaPath, destMetaPath);
         }
+        
+        // Recursively move subdirectory
+        await this.moveFolderRecursive(sourcePath, destPath);
       } else {
         // Move file
         await fs.rename(sourcePath, destPath);
@@ -286,23 +286,33 @@ export class FileOperationsService extends BaseService {
       const itemPath = path.join(folderPath, item.name);
 
       if (item.isDirectory()) {
+        // Delete directory's .meta file BEFORE deleting the directory
+        const metaPath = `${itemPath}.meta`;
+        try {
+          if (await pathExists(metaPath)) {
+            await fs.unlink(metaPath);
+          }
+        } catch (error) {
+          // Log but continue if .meta file deletion fails
+          this.logger.warn(`Failed to delete .meta file: ${metaPath} - ${error}`);
+        }
+        
         // Recursively delete subdirectory
         await this.deleteFolderRecursive(itemPath);
-        
-        // Delete directory's .meta file
-        const metaPath = `${itemPath}.meta`;
-        if (await pathExists(metaPath)) {
-          await fs.unlink(metaPath);
-        }
       } else {
+        // Delete file's .meta file first
+        const metaPath = `${itemPath}.meta`;
+        try {
+          if (await pathExists(metaPath)) {
+            await fs.unlink(metaPath);
+          }
+        } catch (error) {
+          // Log but continue if .meta file deletion fails
+          this.logger.warn(`Failed to delete .meta file: ${metaPath} - ${error}`);
+        }
+        
         // Delete file
         await fs.unlink(itemPath);
-        
-        // Delete file's .meta file
-        const metaPath = `${itemPath}.meta`;
-        if (await pathExists(metaPath)) {
-          await fs.unlink(metaPath);
-        }
       }
     }
 

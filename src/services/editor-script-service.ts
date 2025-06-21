@@ -11,6 +11,7 @@ import { getPropertyDrawerTemplate } from '../templates/property-drawer-template
 import { getMenuItemsTemplate } from '../templates/menu-items-template.js';
 import { getScriptableObjectEditorTemplate } from '../templates/scriptable-object-editor-template.js';
 import { CONFIG } from '../config/index.js';
+import { MetaFileManager } from '../utils/meta-file-manager.js';
 
 export type EditorScriptType = 'editorWindow' | 'customEditor' | 'propertyDrawer' | 'menuItems' | 'scriptableObjectEditor';
 
@@ -22,10 +23,12 @@ export interface EditorScriptOptions {
 
 export class EditorScriptService extends BaseService {
   private validator: UnityProjectValidator;
+  private metaFileManager: MetaFileManager;
 
   constructor(logger: Logger) {
     super(logger);
     this.validator = new UnityProjectValidator();
+    this.metaFileManager = new MetaFileManager(logger);
   }
 
   async createEditorScript(
@@ -56,12 +59,24 @@ export class EditorScriptService extends BaseService {
 
     this.logger.info(`Editor script created: ${scriptPath}`);
 
+    // Generate meta file for the script
+    const metaGenerated = await this.metaFileManager.generateMetaFile(scriptPath);
+    if (!metaGenerated) {
+      this.logger.warn(`Failed to generate meta file for: ${scriptPath}`);
+    }
+
+    // Trigger Unity refresh if available
+    if (this.refreshService) {
+      await this.refreshService.refreshUnityAssets();
+    }
+
     const scriptTypeInfo = CONFIG.unity.editorScriptTypes[scriptType];
     return {
       content: [
         {
           type: 'text',
-          text: `${scriptTypeInfo.name} created: ${path.relative(this.unityProject!.projectPath, scriptPath)}`,
+          text: `${scriptTypeInfo.name} created: ${path.relative(this.unityProject!.projectPath, scriptPath)}\n` +
+                `Meta file generated: ${metaGenerated ? 'Yes' : 'No'}`,
         },
       ],
     };
