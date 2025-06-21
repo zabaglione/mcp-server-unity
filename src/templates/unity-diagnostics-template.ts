@@ -169,12 +169,12 @@ namespace MCP.Diagnostics
         private static List<CompilationError> ParseCompilationLog(string logContent)
         {
             var errors = new List<CompilationError>();
-            var lines = logContent.Split('\n');
+            var lines = logContent.Split(new char[] {'\\\\n'}, StringSplitOptions.RemoveEmptyEntries);
             
             foreach (var line in lines)
             {
                 // Parse C# compiler error format: file(line,column): error CS0000: message
-                var match = System.Text.RegularExpressions.Regex.Match(line, @"(.+)\((\d+),(\d+)\):\s*(error|warning)\s+(\w+):\s*(.+)");
+                var match = System.Text.RegularExpressions.Regex.Match(line, "(.+)\\((\\d+),(\\d+)\\):\\s*(error|warning)\\s+(\\w+):\\s*(.+)");
                 
                 if (match.Success)
                 {
