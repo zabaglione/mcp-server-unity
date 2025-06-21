@@ -169,7 +169,7 @@ namespace MCP.Diagnostics
         private static List<CompilationError> ParseCompilationLog(string logContent)
         {
             var errors = new List<CompilationError>();
-            var lines = logContent.Split(new char[] {'\\\\n'}, StringSplitOptions.RemoveEmptyEntries);
+            var lines = logContent.Split(new char[] {'\\n'}, StringSplitOptions.RemoveEmptyEntries);
             
             foreach (var line in lines)
             {

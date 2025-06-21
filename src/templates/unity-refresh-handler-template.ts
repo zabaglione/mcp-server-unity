@@ -220,7 +220,7 @@ public static class UnityRefreshHandler
     {
         RefreshOptions options = new RefreshOptions();
         
-        string[] lines = content.Split('\\n');
+        string[] lines = content.Split('\n');
         foreach (string line in lines)
         {
             string trimmed = line.Trim();

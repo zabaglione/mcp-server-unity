@@ -61,7 +61,7 @@ public static class ${className}
         string path = GetSelectedPath();
         string assetPath = AssetDatabase.GenerateUniqueAssetPath(path + "/NewTextFile.txt");
         
-        File.WriteAllText(assetPath, "// New text file\\n");
+        File.WriteAllText(assetPath, "// New text file\n");
         AssetDatabase.Refresh();
         
         // Select the new asset
