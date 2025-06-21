@@ -17,6 +17,7 @@ import { EnhancedCompilationService } from './enhanced-compilation-service.js';
 import { StandaloneCompilationService } from './standalone-compilation-service.js';
 import { UIToolkitService } from './ui-toolkit-service.js';
 import { FileOperationsService } from './file-operations-service.js';
+import { DiffBasedUpdateService } from './diff-based-update-service.js';
 
 export interface Services {
   projectService: ProjectService;
@@ -35,6 +36,7 @@ export interface Services {
   standaloneCompilationService: StandaloneCompilationService;
   uiToolkitService: UIToolkitService;
   fileOperationsService: FileOperationsService;
+  diffBasedUpdateService: DiffBasedUpdateService;
 }
 
 export class ServiceFactory {
@@ -61,6 +63,7 @@ export class ServiceFactory {
     const uiToolkitService = new UIToolkitService(logger);
     const fileOperationsService = new FileOperationsService(logger);
     const standaloneCompilationService = new StandaloneCompilationService(logger);
+    const diffBasedUpdateService = new DiffBasedUpdateService(logger);
 
     // Set cross-service dependencies
     materialService.setShaderService(shaderService);
@@ -77,7 +80,8 @@ export class ServiceFactory {
       aiAutomationService,
       fileOperationsService,
       compilationService,
-      standaloneCompilationService
+      standaloneCompilationService,
+      diffBasedUpdateService
     ];
     
     for (const service of fileOperationServices) {
@@ -101,6 +105,7 @@ export class ServiceFactory {
       standaloneCompilationService,
       uiToolkitService,
       fileOperationsService,
+      diffBasedUpdateService
     };
   }
 
@@ -133,6 +138,7 @@ export class ServiceFactory {
         services.standaloneCompilationService.setUnityProject(project);
         services.uiToolkitService.setUnityProject(project);
         services.fileOperationsService.setUnityProject(project);
+        services.diffBasedUpdateService.setUnityProject(project);
         
         // Re-set service dependencies after project update
         services.materialService.setShaderService(services.shaderService);
@@ -148,7 +154,8 @@ export class ServiceFactory {
           services.aiAutomationService,
           services.fileOperationsService,
           services.compilationService,
-          services.standaloneCompilationService
+          services.standaloneCompilationService,
+          services.diffBasedUpdateService
         ];
         
         for (const service of fileOperationServices) {

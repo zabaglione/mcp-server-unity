@@ -1,12 +1,12 @@
 {
-  "name": "mcp-server-unity",
-  "version": "1.0.0",
-  "description": "Model Context Protocol server for Unity development - enables Claude to interact with Unity projects",
+  "name": "unity-mcp-bridge",
+  "version": "3.0.0",
+  "description": "Unity 6 MCP Bridge - Direct Unity API integration for seamless AI-powered development",
   "type": "module",
   "main": "build/start-http.js",
   "bin": {
-    "unity-mcp-http": "./build/start-http.js",
-    "mcp-server-unity": "./build/index.js"
+    "unity-mcp-bridge": "./build/index.js",
+    "unity-mcp-http": "./build/start-http.js"
   },
   "scripts": {
     "build": "tsc",
