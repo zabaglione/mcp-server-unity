@@ -13,6 +13,7 @@ import { GameSystemService } from './game-system-service.js';
 import { MaterialService } from './material-service.js';
 import { CodeAnalysisService } from './code-analysis-service.js';
 import { CompilationService } from './compilation-service.js';
+import { EnhancedCompilationService } from './enhanced-compilation-service.js';
 import { UIToolkitService } from './ui-toolkit-service.js';
 import { FileOperationsService } from './file-operations-service.js';
 
@@ -50,7 +51,11 @@ export class ServiceFactory {
     const gameSystemService = new GameSystemService(logger);
     const materialService = new MaterialService(logger);
     const codeAnalysisService = new CodeAnalysisService(logger);
-    const compilationService = new CompilationService(logger);
+    // Use enhanced compilation service if environment variable is set
+    const useEnhancedCompilation = process.env.USE_ENHANCED_COMPILATION === 'true';
+    const compilationService = useEnhancedCompilation 
+      ? new EnhancedCompilationService(logger) 
+      : new CompilationService(logger);
     const uiToolkitService = new UIToolkitService(logger);
     const fileOperationsService = new FileOperationsService(logger);
 
@@ -67,7 +72,8 @@ export class ServiceFactory {
       uiToolkitService,
       gameSystemService,
       aiAutomationService,
-      fileOperationsService
+      fileOperationsService,
+      compilationService
     ];
     
     for (const service of fileOperationServices) {
@@ -134,7 +140,8 @@ export class ServiceFactory {
           services.uiToolkitService,
           services.gameSystemService,
           services.aiAutomationService,
-          services.fileOperationsService
+          services.fileOperationsService,
+          services.compilationService
         ];
         
         for (const service of fileOperationServices) {

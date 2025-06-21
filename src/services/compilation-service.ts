@@ -16,7 +16,7 @@ interface CompilationError {
 }
 
 export class CompilationService extends BaseService {
-  private metaFileManager: MetaFileManager;
+  protected metaFileManager: MetaFileManager;
   
   constructor(logger: Logger) {
     super(logger);
@@ -283,7 +283,7 @@ namespace UnityMCP.Editor
 
   // Helper methods
 
-  private parseCompilationResults(results: any): CompilationError[] {
+  protected parseCompilationResults(results: any): CompilationError[] {
     const errors: CompilationError[] = [];
     
     if (results.messages && Array.isArray(results.messages)) {
@@ -302,7 +302,7 @@ namespace UnityMCP.Editor
     return errors;
   }
 
-  private async parseEditorLogForErrors(): Promise<CompilationError[]> {
+  protected async parseEditorLogForErrors(): Promise<CompilationError[]> {
     const errors: CompilationError[] = [];
     
     try {
@@ -333,7 +333,7 @@ namespace UnityMCP.Editor
     return errors;
   }
 
-  private async enhanceErrorsWithContext(errors: CompilationError[]): Promise<CompilationError[]> {
+  protected async enhanceErrorsWithContext(errors: CompilationError[]): Promise<CompilationError[]> {
     for (const error of errors) {
       try {
         if (error.file && error.line > 0) {
@@ -364,7 +364,7 @@ namespace UnityMCP.Editor
     return errors;
   }
 
-  private formatCompilationErrors(errors: CompilationError[]): string {
+  protected formatCompilationErrors(errors: CompilationError[]): string {
     if (errors.length === 0) {
       return 'No compilation errors found!\n\nNote: Make sure Unity has compiled recently.';
     }
@@ -387,14 +387,14 @@ namespace UnityMCP.Editor
     return output;
   }
 
-  private async forceUnityCompilation(): Promise<CompilationError[]> {
+  protected async forceUnityCompilation(): Promise<CompilationError[]> {
     // This would require Unity to be running or using Unity in batch mode
     // For now, return empty array and suggest using the helper script
     this.logger.info('Force compilation requested - requires Unity to be running');
     return [];
   }
 
-  private async isUnityCompiling(): Promise<boolean> {
+  protected async isUnityCompiling(): Promise<boolean> {
     try {
       const lockFile = path.join(this.unityProject!.projectPath, 'Temp', 'UnityLockfile');
       await fs.access(lockFile);
@@ -404,7 +404,7 @@ namespace UnityMCP.Editor
     }
   }
 
-  private async getLastCompileTime(): Promise<string | null> {
+  protected async getLastCompileTime(): Promise<string | null> {
     try {
       const assemblyPath = path.join(this.unityProject!.projectPath, 'Library', 'ScriptAssemblies', 'Assembly-CSharp.dll');
       const stats = await fs.stat(assemblyPath);
@@ -414,7 +414,7 @@ namespace UnityMCP.Editor
     }
   }
 
-  private async hasCompilationErrors(): Promise<boolean> {
+  protected async hasCompilationErrors(): Promise<boolean> {
     try {
       const failedPath = path.join(this.unityProject!.projectPath, 'Library', 'ScriptAssemblies', 'CompilationCompleted.txt');
       await fs.access(failedPath);
@@ -424,7 +424,7 @@ namespace UnityMCP.Editor
     }
   }
 
-  private getEditorLogPath(): string {
+  protected getEditorLogPath(): string {
     const platform = process.platform;
     
     if (platform === 'darwin') {
@@ -436,7 +436,7 @@ namespace UnityMCP.Editor
     }
   }
 
-  private async fileExists(filePath: string): Promise<boolean> {
+  protected async fileExists(filePath: string): Promise<boolean> {
     return pathExists(filePath);
   }
 }
