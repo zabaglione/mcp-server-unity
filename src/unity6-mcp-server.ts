@@ -1317,7 +1317,8 @@ namespace Unity.MCP.Bridge.Handlers
                 throw new FileNotFoundException($"Script not found: {path}");
             }
             
-            string content = File.ReadAllText(path);
+            // Use async file reading to avoid blocking
+            string content = await Task.Run(() => File.ReadAllText(path));
             
             Debug.Log($"[ScriptHandler] File read successfully, content length: {content.Length}");
             
@@ -1511,66 +1512,69 @@ namespace Unity.MCP.Bridge.Handlers
 
         private async Task<object> ListFolder(dynamic parameters)
         {
-            Debug.Log($"[FolderHandler] ListFolder called with parameters: {parameters}");
-            
-            string path = parameters?.path ?? "Assets";
-            
-            Debug.Log($"[FolderHandler] Target path: '{path}'");
-            
-            if (!AssetDatabase.IsValidFolder(path))
+            return await ExecuteOnMainThread(() =>
             {
-                Debug.LogError($"[FolderHandler] Invalid folder path: '{path}'");
-                throw new DirectoryNotFoundException($"Folder not found: {path}");
-            }
-            
-            var folders = new List<object>();
-            var files = new List<object>();
-            
-            string[] guids = AssetDatabase.FindAssets("", new[] { path });
-            
-            Debug.Log($"[FolderHandler] Found {guids.Length} assets in path: {path}");
-            
-            foreach (string guid in guids)
-            {
-                string assetPath = AssetDatabase.GUIDToAssetPath(guid);
+                Debug.Log($"[FolderHandler] ListFolder called with parameters: {parameters}");
                 
-                // Skip if not direct child of the specified path
-                string parentPath = Path.GetDirectoryName(assetPath).Replace('\\\\', '/');
-                if (parentPath != path) continue;
+                string path = parameters?.path ?? "Assets";
                 
-                if (AssetDatabase.IsValidFolder(assetPath))
+                Debug.Log($"[FolderHandler] Target path: '{path}'");
+                
+                if (!AssetDatabase.IsValidFolder(path))
                 {
-                    folders.Add(new
-                    {
-                        name = Path.GetFileName(assetPath),
-                        path = assetPath,
-                        type = "folder",
-                        guid = guid
-                    });
+                    Debug.LogError($"[FolderHandler] Invalid folder path: '{path}'");
+                    throw new DirectoryNotFoundException($"Folder not found: {path}");
                 }
-                else
+                
+                var folders = new List<object>();
+                var files = new List<object>();
+                
+                string[] guids = AssetDatabase.FindAssets("", new[] { path });
+                
+                Debug.Log($"[FolderHandler] Found {guids.Length} assets in path: {path}");
+            
+                foreach (string guid in guids)
                 {
-                    var fileInfo = new FileInfo(assetPath);
-                    files.Add(new
+                    string assetPath = AssetDatabase.GUIDToAssetPath(guid);
+                    
+                    // Skip if not direct child of the specified path
+                    string parentPath = Path.GetDirectoryName(assetPath).Replace('\\\\', '/');
+                    if (parentPath != path) continue;
+                    
+                    if (AssetDatabase.IsValidFolder(assetPath))
                     {
-                        name = Path.GetFileName(assetPath),
-                        path = assetPath,
-                        type = "file",
-                        extension = fileInfo.Extension,
-                        guid = guid
-                    });
+                        folders.Add(new
+                        {
+                            name = Path.GetFileName(assetPath),
+                            path = assetPath,
+                            type = "folder",
+                            guid = guid
+                        });
+                    }
+                    else
+                    {
+                        var fileInfo = new FileInfo(assetPath);
+                        files.Add(new
+                        {
+                            name = Path.GetFileName(assetPath),
+                            path = assetPath,
+                            type = "file",
+                            extension = fileInfo.Extension,
+                            guid = guid
+                        });
+                    }
                 }
-            }
-            
-            Debug.Log($"[FolderHandler] Found {folders.Count} folders, {files.Count} files");
-            
-            return new
-            {
-                path = path,
-                folders = folders,
-                files = files,
-                success = true
-            };
+                
+                Debug.Log($"[FolderHandler] Found {folders.Count} folders, {files.Count} files");
+                
+                return new
+                {
+                    path = path,
+                    folders = folders,
+                    files = files,
+                    success = true
+                };
+            });
         }
     }
 }`;

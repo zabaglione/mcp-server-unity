@@ -156,7 +156,7 @@ export class UnityBridgeClient extends EventEmitter {
   /**
    * Send request to Unity and wait for response
    */
-  async sendRequest(method: string, params: any = {}, timeoutMs = 30000): Promise<any> {
+  async sendRequest(method: string, params: any = {}, timeoutMs = 120000): Promise<any> {
     if (!this.isConnected) {
       await this.connect();
     }

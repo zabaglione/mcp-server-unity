@@ -31,7 +31,7 @@ export class ScriptAPI {
     try {
       const result = await this.bridge.sendRequest('Unity.Script.Read', {
         path
-      });
+      }, 360000); // 6 minutes timeout for large files
 
       return {
         content: [{
@@ -59,7 +59,7 @@ export class ScriptAPI {
         template: options.template || 'MonoBehaviour',
         namespace: options.namespace,
         usings: options.usings || ['UnityEngine']
-      });
+      }, 360000); // 6 minutes timeout for large script creation
 
       return {
         content: [{
@@ -87,7 +87,7 @@ export class ScriptAPI {
     try {
       const result = await this.bridge.sendRequest('Unity.Script.Delete', {
         path
-      });
+      }, 360000); // 6 minutes timeout
 
       return {
         content: [{
@@ -113,7 +113,7 @@ export class ScriptAPI {
       const result = await this.bridge.sendRequest('Unity.Script.Rename', {
         oldPath,
         newName
-      });
+      }, 360000); // 6 minutes timeout
 
       return {
         content: [{
