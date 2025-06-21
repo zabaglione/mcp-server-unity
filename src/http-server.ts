@@ -389,6 +389,76 @@ export class UnityMCPHttpServer {
       }
     });
 
+    // File Operations routes
+    this.app.post('/api/file/move', async (req, res) => {
+      try {
+        const { sourcePath, destinationPath } = req.body;
+        const result = await this.services.fileOperationsService.moveFile(
+          sourcePath,
+          destinationPath
+        );
+        res.json(result);
+      } catch (error) {
+        this.handleError(error, res);
+      }
+    });
+
+    this.app.delete('/api/file/:filePath(*)', async (req, res) => {
+      try {
+        const { filePath } = req.params;
+        const result = await this.services.fileOperationsService.deleteFile(filePath);
+        res.json(result);
+      } catch (error) {
+        this.handleError(error, res);
+      }
+    });
+
+    this.app.post('/api/folder/move', async (req, res) => {
+      try {
+        const { sourcePath, destinationPath } = req.body;
+        const result = await this.services.fileOperationsService.moveFolder(
+          sourcePath,
+          destinationPath
+        );
+        res.json(result);
+      } catch (error) {
+        this.handleError(error, res);
+      }
+    });
+
+    this.app.post('/api/folder/rename', async (req, res) => {
+      try {
+        const { oldName, newName } = req.body;
+        const result = await this.services.fileOperationsService.renameFolder(
+          oldName,
+          newName
+        );
+        res.json(result);
+      } catch (error) {
+        this.handleError(error, res);
+      }
+    });
+
+    this.app.delete('/api/folder/:folderPath(*)', async (req, res) => {
+      try {
+        const { folderPath } = req.params;
+        const result = await this.services.fileOperationsService.deleteFolder(folderPath);
+        res.json(result);
+      } catch (error) {
+        this.handleError(error, res);
+      }
+    });
+
+    this.app.post('/api/file/batch', async (req, res) => {
+      try {
+        const { operations } = req.body;
+        const result = await this.services.fileOperationsService.batchFileOperations(operations);
+        res.json(result);
+      } catch (error) {
+        this.handleError(error, res);
+      }
+    });
+
     // Batch operations
     this.app.post('/api/batch', async (req, res) => {
       try {
@@ -467,11 +537,39 @@ export class UnityMCPHttpServer {
           ],
           asset: [
             'POST /api/asset/create-script',
-            'GET /api/asset/list-scripts'
+            'GET /api/asset/list-scripts',
+            'PUT /api/asset/update-script',
+            'PATCH /api/asset/update-script-partial',
+            'POST /api/asset/create-material'
+          ],
+          material: [
+            'PUT /api/material/shader',
+            'PUT /api/material/properties',
+            'GET /api/material/:materialName',
+            'POST /api/material/batch-convert'
           ],
           diagnostics: [
             'POST /api/diagnostics/compile',
             'GET /api/diagnostics/summary'
+          ],
+          code: [
+            'POST /api/code/analyze-diff',
+            'GET /api/code/detect-duplicates',
+            'GET /api/code/suggest-namespace/:fileName',
+            'POST /api/code/apply-namespace'
+          ],
+          compile: [
+            'GET /api/compile/errors',
+            'GET /api/compile/status',
+            'POST /api/compile/install-helper'
+          ],
+          file: [
+            'POST /api/file/move',
+            'DELETE /api/file/:filePath',
+            'POST /api/folder/move',
+            'POST /api/folder/rename',
+            'DELETE /api/folder/:folderPath',
+            'POST /api/file/batch'
           ],
           batch: [
             'POST /api/batch'

@@ -994,6 +994,122 @@ class UnityMCPServer {
             required: ['componentName'],
           },
         },*/
+        // File Operations
+        {
+          name: 'file_move',
+          description: 'Move a file within the Unity project (handles .meta files automatically)',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              sourcePath: {
+                type: 'string',
+                description: 'Path to the file to move (relative to project root or absolute)',
+              },
+              destinationPath: {
+                type: 'string',
+                description: 'Destination path for the file (relative to project root or absolute)',
+              },
+            },
+            required: ['sourcePath', 'destinationPath'],
+          },
+        },
+        {
+          name: 'file_delete',
+          description: 'Delete a file from the Unity project (handles .meta file automatically)',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              filePath: {
+                type: 'string',
+                description: 'Path to the file to delete (relative to project root or absolute)',
+              },
+            },
+            required: ['filePath'],
+          },
+        },
+        {
+          name: 'folder_move',
+          description: 'Move a folder within the Unity project (handles all .meta files automatically)',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              sourcePath: {
+                type: 'string',
+                description: 'Path to the folder to move (relative to project root or absolute)',
+              },
+              destinationPath: {
+                type: 'string',
+                description: 'Destination path for the folder (relative to project root or absolute)',
+              },
+            },
+            required: ['sourcePath', 'destinationPath'],
+          },
+        },
+        {
+          name: 'folder_rename',
+          description: 'Rename a folder within the Unity project (handles .meta file automatically)',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              oldName: {
+                type: 'string',
+                description: 'Current folder path (relative to project root or absolute)',
+              },
+              newName: {
+                type: 'string',
+                description: 'New folder name (just the name, not the full path)',
+              },
+            },
+            required: ['oldName', 'newName'],
+          },
+        },
+        {
+          name: 'folder_delete',
+          description: 'Delete a folder and all its contents from the Unity project (handles all .meta files automatically)',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              folderPath: {
+                type: 'string',
+                description: 'Path to the folder to delete (relative to project root or absolute)',
+              },
+            },
+            required: ['folderPath'],
+          },
+        },
+        {
+          name: 'file_batch_operations',
+          description: 'Perform multiple file operations in a single batch',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              operations: {
+                type: 'array',
+                description: 'Array of file operations to perform',
+                items: {
+                  type: 'object',
+                  properties: {
+                    type: {
+                      type: 'string',
+                      enum: ['move', 'delete', 'rename'],
+                      description: 'Type of operation',
+                    },
+                    source: {
+                      type: 'string',
+                      description: 'Source file path',
+                    },
+                    destination: {
+                      type: 'string',
+                      description: 'Destination path (for move/rename operations)',
+                    },
+                  },
+                  required: ['type', 'source'],
+                },
+              },
+            },
+            required: ['operations'],
+          },
+        },
       ],
     }));
 
@@ -1402,6 +1518,52 @@ class UnityMCPServer {
               args.componentName,
               args.componentType || 'panel'
             );*/
+
+          // File Operations
+          case 'file_move':
+            if (!args || typeof args.sourcePath !== 'string' || typeof args.destinationPath !== 'string') {
+              throw new McpError(ErrorCode.InvalidParams, 'sourcePath and destinationPath are required');
+            }
+            return await this.services.fileOperationsService.moveFile(
+              args.sourcePath,
+              args.destinationPath
+            );
+
+          case 'file_delete':
+            if (!args || typeof args.filePath !== 'string') {
+              throw new McpError(ErrorCode.InvalidParams, 'filePath is required');
+            }
+            return await this.services.fileOperationsService.deleteFile(args.filePath);
+
+          case 'folder_move':
+            if (!args || typeof args.sourcePath !== 'string' || typeof args.destinationPath !== 'string') {
+              throw new McpError(ErrorCode.InvalidParams, 'sourcePath and destinationPath are required');
+            }
+            return await this.services.fileOperationsService.moveFolder(
+              args.sourcePath,
+              args.destinationPath
+            );
+
+          case 'folder_rename':
+            if (!args || typeof args.oldName !== 'string' || typeof args.newName !== 'string') {
+              throw new McpError(ErrorCode.InvalidParams, 'oldName and newName are required');
+            }
+            return await this.services.fileOperationsService.renameFolder(
+              args.oldName,
+              args.newName
+            );
+
+          case 'folder_delete':
+            if (!args || typeof args.folderPath !== 'string') {
+              throw new McpError(ErrorCode.InvalidParams, 'folderPath is required');
+            }
+            return await this.services.fileOperationsService.deleteFolder(args.folderPath);
+
+          case 'file_batch_operations':
+            if (!args || !Array.isArray(args.operations)) {
+              throw new McpError(ErrorCode.InvalidParams, 'operations array is required');
+            }
+            return await this.services.fileOperationsService.batchFileOperations(args.operations);
 
           default:
             throw new McpError(ErrorCode.MethodNotFound, `Unknown tool: ${name}`);

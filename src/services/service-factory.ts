@@ -14,6 +14,7 @@ import { MaterialService } from './material-service.js';
 import { CodeAnalysisService } from './code-analysis-service.js';
 import { CompilationService } from './compilation-service.js';
 import { UIToolkitService } from './ui-toolkit-service.js';
+import { FileOperationsService } from './file-operations-service.js';
 
 export interface Services {
   projectService: ProjectService;
@@ -30,6 +31,7 @@ export interface Services {
   codeAnalysisService: CodeAnalysisService;
   compilationService: CompilationService;
   uiToolkitService: UIToolkitService;
+  fileOperationsService: FileOperationsService;
 }
 
 export class ServiceFactory {
@@ -50,6 +52,7 @@ export class ServiceFactory {
     const codeAnalysisService = new CodeAnalysisService(logger);
     const compilationService = new CompilationService(logger);
     const uiToolkitService = new UIToolkitService(logger);
+    const fileOperationsService = new FileOperationsService(logger);
 
     // Set cross-service dependencies
     materialService.setShaderService(shaderService);
@@ -63,7 +66,8 @@ export class ServiceFactory {
       editorScriptService,
       uiToolkitService,
       gameSystemService,
-      aiAutomationService
+      aiAutomationService,
+      fileOperationsService
     ];
     
     for (const service of fileOperationServices) {
@@ -85,6 +89,7 @@ export class ServiceFactory {
       codeAnalysisService,
       compilationService,
       uiToolkitService,
+      fileOperationsService,
     };
   }
 
@@ -115,6 +120,7 @@ export class ServiceFactory {
         services.codeAnalysisService.setUnityProject(project);
         services.compilationService.setUnityProject(project);
         services.uiToolkitService.setUnityProject(project);
+        services.fileOperationsService.setUnityProject(project);
         
         // Re-set service dependencies after project update
         services.materialService.setShaderService(services.shaderService);
@@ -127,7 +133,8 @@ export class ServiceFactory {
           services.editorScriptService,
           services.uiToolkitService,
           services.gameSystemService,
-          services.aiAutomationService
+          services.aiAutomationService,
+          services.fileOperationsService
         ];
         
         for (const service of fileOperationServices) {
