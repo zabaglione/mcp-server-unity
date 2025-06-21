@@ -174,10 +174,7 @@ namespace MCP.Diagnostics
             foreach (var line in lines)
             {
                 // Parse C# compiler error format: file(line,column): error CS0000: message
-                var match = System.Text.RegularExpressions.Regex.Match(
-                    line, 
-                    @"(.+)\((\d+),(\d+)\):\s*(error|warning)\s+(\w+):\s*(.+)"
-                );
+                var match = System.Text.RegularExpressions.Regex.Match(line, @"(.+)\((\d+),(\d+)\):\s*(error|warning)\s+(\w+):\s*(.+)");
                 
                 if (match.Success)
                 {
