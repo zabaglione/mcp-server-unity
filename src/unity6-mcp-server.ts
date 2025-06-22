@@ -873,9 +873,15 @@ namespace Unity.MCP.Bridge
 
         static async Task HandleTcpClientAsync(TcpClient tcpClient)
         {
-            var buffer = new byte[4096];
+            // Increase buffer size for better performance with large data
+            var buffer = new byte[65536]; // 64KB buffer
             var messageBuffer = new StringBuilder();
             var stream = tcpClient.GetStream();
+            
+            // Set socket options for better performance
+            tcpClient.ReceiveBufferSize = 65536;
+            tcpClient.SendBufferSize = 65536;
+            tcpClient.NoDelay = true; // Disable Nagle's algorithm for lower latency
             
             try
             {
@@ -1260,35 +1266,50 @@ namespace Unity.MCP.Bridge.Handlers
 
         private async Task<object> CreateScript(dynamic parameters)
         {
-            return await ExecuteOnMainThread(() =>
+            Debug.Log($"[ScriptHandler] CreateScript called with parameters: {parameters}");
+            
+            string fileName = parameters?.fileName;
+            string content = parameters?.content;
+            string folder = parameters?.folder ?? "Assets/Scripts";
+            string template = parameters?.template ?? "MonoBehaviour";
+            
+            Debug.Log($"[ScriptHandler] Parsed - fileName: '{fileName}', folder: '{folder}', template: '{template}'");
+            
+            if (string.IsNullOrEmpty(fileName))
             {
-                Debug.Log($"[ScriptHandler] CreateScript called with parameters: {parameters}");
-                
-                string fileName = parameters?.fileName;
-                string content = parameters?.content;
-                string folder = parameters?.folder ?? "Assets/Scripts";
-                string template = parameters?.template ?? "MonoBehaviour";
-                
-                Debug.Log($"[ScriptHandler] Parsed - fileName: '{fileName}', folder: '{folder}', template: '{template}'");
-                
-                if (string.IsNullOrEmpty(fileName))
-                {
-                    throw new ArgumentException("fileName parameter is required and cannot be null or empty");
-                }
-                
+                throw new ArgumentException("fileName parameter is required and cannot be null or empty");
+            }
+            
+            // Create folder on main thread
+            await ExecuteOnMainThread(() =>
+            {
                 if (!AssetDatabase.IsValidFolder(folder))
                 {
                     CreateDirectoryRecursive(folder);
                 }
-                
-                string fullPath = $"{folder}/{fileName}.cs";
-                
-                if (string.IsNullOrEmpty(content))
-                {
-                    content = GenerateScriptFromTemplate(fileName, template);
-                }
-                
+            });
+            
+            string fullPath = $"{folder}/{fileName}.cs";
+            
+            if (string.IsNullOrEmpty(content))
+            {
+                content = GenerateScriptFromTemplate(fileName, template);
+            }
+            
+            // For large content, write asynchronously
+            if (content.Length > 1024 * 1024) // > 1MB
+            {
+                Debug.Log($"[ScriptHandler] Large content detected ({content.Length} bytes), using async write");
+                await Task.Run(() => File.WriteAllText(fullPath, content));
+            }
+            else
+            {
                 File.WriteAllText(fullPath, content);
+            }
+            
+            // Import asset on main thread
+            return await ExecuteOnMainThread(() =>
+            {
                 AssetDatabase.ImportAsset(fullPath);
                 
                 var guid = AssetDatabase.AssetPathToGUID(fullPath);
@@ -1317,17 +1338,53 @@ namespace Unity.MCP.Bridge.Handlers
                 throw new FileNotFoundException($"Script not found: {path}");
             }
             
-            // Use async file reading to avoid blocking
-            string content = await Task.Run(() => File.ReadAllText(path));
+            // Check file size first
+            var fileInfo = new FileInfo(path);
+            Debug.Log($"[ScriptHandler] File size: {fileInfo.Length} bytes");
             
-            Debug.Log($"[ScriptHandler] File read successfully, content length: {content.Length}");
-            
-            return new
+            // For large files, read in chunks to avoid memory issues
+            if (fileInfo.Length > 1024 * 1024) // > 1MB
             {
-                path = path,
-                content = content,
-                success = true
-            };
+                Debug.Log($"[ScriptHandler] Large file detected, using streaming read");
+                var stringBuilder = new StringBuilder();
+                
+                await Task.Run(async () =>
+                {
+                    using (var reader = new StreamReader(path))
+                    {
+                        char[] buffer = new char[4096];
+                        int read;
+                        while ((read = await reader.ReadAsync(buffer, 0, buffer.Length)) > 0)
+                        {
+                            stringBuilder.Append(buffer, 0, read);
+                        }
+                    }
+                });
+                
+                string content = stringBuilder.ToString();
+                Debug.Log($"[ScriptHandler] Large file read successfully, content length: {content.Length}");
+                
+                return new
+                {
+                    path = path,
+                    content = content,
+                    success = true
+                };
+            }
+            else
+            {
+                // Small files can be read directly
+                string content = await Task.Run(() => File.ReadAllText(path));
+                
+                Debug.Log($"[ScriptHandler] File read successfully, content length: {content.Length}");
+                
+                return new
+                {
+                    path = path,
+                    content = content,
+                    success = true
+                };
+            }
         }
 
         private async Task<object> DeleteScript(dynamic parameters)
