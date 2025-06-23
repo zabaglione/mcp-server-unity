@@ -12,6 +12,7 @@ import { ConsoleLogger } from './utils/logger.js';
 import { UnityBridgeClient } from './unity-bridge/unity-bridge-client.js';
 import { ScriptAPI } from './api/script/script-api.js';
 import { FolderAPI } from './api/folder/folder-api.js';
+import { ScriptDiffAPI } from './api/script/script-diff-api.js';
 
 /**
  * Unity 6 MCP Server
@@ -23,6 +24,7 @@ class Unity6MCPServer {
   private unityBridge: UnityBridgeClient;
   private scriptAPI: ScriptAPI;
   private folderAPI: FolderAPI;
+  private scriptDiffAPI: ScriptDiffAPI;
   private projectPath: string | null = null;
 
   constructor() {
@@ -45,6 +47,7 @@ class Unity6MCPServer {
     this.unityBridge = new UnityBridgeClient(this.logger);
     this.scriptAPI = new ScriptAPI(this.unityBridge, this.logger);
     this.folderAPI = new FolderAPI(this.unityBridge, this.logger);
+    this.scriptDiffAPI = new ScriptDiffAPI(this.unityBridge, this.logger);
 
     this.setupUnityBridgeEvents();
     this.setupHandlers();
@@ -235,6 +238,147 @@ class Unity6MCPServer {
           },
         },
 
+        // Diff Operations
+        {
+          name: 'script_update_diff',
+          description: 'Apply diff to a single file with advanced options',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              path: {
+                type: 'string',
+                description: 'Path to the file to update',
+              },
+              diff: {
+                type: 'string',
+                description: 'Unified diff format content',
+              },
+              options: {
+                type: 'object',
+                properties: {
+                  fuzzy: {
+                    type: 'number',
+                    description: 'Fuzzy matching tolerance (0-100)',
+                  },
+                  ignoreWhitespace: {
+                    type: 'boolean',
+                    description: 'Ignore whitespace differences',
+                  },
+                  ignoreCase: {
+                    type: 'boolean',
+                    description: 'Ignore case differences',
+                  },
+                  createBackup: {
+                    type: 'boolean',
+                    description: 'Create backup before applying (default: true)',
+                  },
+                  validateSyntax: {
+                    type: 'boolean',
+                    description: 'Validate syntax after applying (default: true)',
+                  },
+                  dryRun: {
+                    type: 'boolean',
+                    description: 'Preview changes without applying',
+                  },
+                  partial: {
+                    type: 'boolean',
+                    description: 'Allow partial application',
+                  },
+                },
+              },
+            },
+            required: ['path', 'diff'],
+          },
+        },
+        {
+          name: 'script_apply_patch',
+          description: 'Apply patch to multiple files with transaction support',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              patch: {
+                type: 'string',
+                description: 'Git-style patch or JSON array of patch files',
+              },
+              options: {
+                type: 'object',
+                properties: {
+                  atomic: {
+                    type: 'boolean',
+                    description: 'All succeed or all rollback (default: true)',
+                  },
+                  continueOnError: {
+                    type: 'boolean',
+                    description: 'Continue on error (default: false)',
+                  },
+                  createBackup: {
+                    type: 'boolean',
+                    description: 'Create backups (default: true)',
+                  },
+                },
+              },
+            },
+            required: ['patch'],
+          },
+        },
+        {
+          name: 'script_create_diff',
+          description: 'Create diff between two contents or files',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              original: {
+                oneOf: [
+                  { type: 'string', description: 'Original content' },
+                  { type: 'object', properties: { path: { type: 'string' } }, description: 'Original file path' },
+                ],
+              },
+              modified: {
+                oneOf: [
+                  { type: 'string', description: 'Modified content' },
+                  { type: 'object', properties: { path: { type: 'string' } }, description: 'Modified file path' },
+                ],
+              },
+              options: {
+                type: 'object',
+                properties: {
+                  contextLines: {
+                    type: 'number',
+                    description: 'Context lines (default: 3)',
+                  },
+                  ignoreWhitespace: {
+                    type: 'boolean',
+                    description: 'Ignore whitespace',
+                  },
+                  ignoreCase: {
+                    type: 'boolean',
+                    description: 'Ignore case',
+                  },
+                },
+              },
+            },
+            required: ['original', 'modified'],
+          },
+        },
+        {
+          name: 'script_validate_diff',
+          description: 'Validate diff before applying',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              path: {
+                type: 'string',
+                description: 'Path to the file',
+              },
+              diff: {
+                type: 'string',
+                description: 'Diff to validate',
+              },
+            },
+            required: ['path', 'diff'],
+          },
+        },
+
         // Folder Operations
         {
           name: 'folder_create',
@@ -361,6 +505,53 @@ class Unity6MCPServer {
 
           case 'script_rename':
             return await this.scriptAPI.rename(args?.oldPath as string, args?.newName as string);
+
+          // Diff Operations
+          case 'script_update_diff':
+            return await this.scriptDiffAPI.updateDiff(
+              args?.path as string,
+              args?.diff as string,
+              args?.options as any
+            );
+
+          case 'script_apply_patch':
+            return await this.scriptDiffAPI.applyPatch(
+              args?.patch as string,
+              args?.options as any
+            );
+
+          case 'script_create_diff':
+            // Parse original and modified parameters correctly
+            let originalParam = args?.original;
+            let modifiedParam = args?.modified;
+            
+            // If the parameters are JSON strings, parse them
+            if (typeof originalParam === 'string' && originalParam.startsWith('{')) {
+              try {
+                originalParam = JSON.parse(originalParam);
+              } catch (e) {
+                // Keep as string if parse fails
+              }
+            }
+            if (typeof modifiedParam === 'string' && modifiedParam.startsWith('{')) {
+              try {
+                modifiedParam = JSON.parse(modifiedParam);
+              } catch (e) {
+                // Keep as string if parse fails
+              }
+            }
+            
+            return await this.scriptDiffAPI.createDiff(
+              originalParam as string | { path: string },
+              modifiedParam as string | { path: string },
+              args?.options as any
+            );
+
+          case 'script_validate_diff':
+            return await this.scriptDiffAPI.validateDiff(
+              args?.path as string,
+              args?.diff as string
+            );
 
           // Folder Operations
           case 'folder_create':
@@ -835,6 +1026,11 @@ namespace Unity.MCP.Bridge
                 
                 tcpListener = new TcpListener(IPAddress.Loopback, port);
                 tcpListener.Start();
+                
+                // Set server socket timeout to unlimited
+                tcpListener.Server.ReceiveTimeout = 0; // 0 = infinite
+                tcpListener.Server.SendTimeout = 0; // 0 = infinite
+                
                 Debug.Log("MCP Bridge waiting for connections...");
                 
                 while (isRunning && !isShuttingDown)
@@ -882,6 +1078,10 @@ namespace Unity.MCP.Bridge
             tcpClient.ReceiveBufferSize = 65536;
             tcpClient.SendBufferSize = 65536;
             tcpClient.NoDelay = true; // Disable Nagle's algorithm for lower latency
+            
+            // Disable timeouts for large data transfers
+            tcpClient.ReceiveTimeout = 0; // 0 = infinite
+            tcpClient.SendTimeout = 0; // 0 = infinite
             
             try
             {
@@ -1391,12 +1591,27 @@ namespace Unity.MCP.Bridge.Handlers
         {
             return await ExecuteOnMainThread(() =>
             {
+                Debug.Log($"[ScriptHandler] DeleteScript called with parameters: {parameters}");
+                
                 string path = parameters?.path;
+                
+                Debug.Log($"[ScriptHandler] Target path for deletion: '{path}'");
+                
+                if (!File.Exists(path))
+                {
+                    Debug.LogWarning($"[ScriptHandler] File not found, cannot delete: '{path}'");
+                    throw new FileNotFoundException($"Script not found: {path}");
+                }
+                
+                Debug.Log($"[ScriptHandler] Attempting to delete asset: {path}");
                 
                 if (!AssetDatabase.DeleteAsset(path))
                 {
+                    Debug.LogError($"[ScriptHandler] AssetDatabase.DeleteAsset failed for: {path}");
                     throw new InvalidOperationException($"Failed to delete script: {path}");
                 }
+                
+                Debug.Log($"[ScriptHandler] Successfully deleted asset: {path}");
                 
                 return new
                 {

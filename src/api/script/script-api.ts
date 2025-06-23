@@ -31,7 +31,12 @@ export class ScriptAPI {
     try {
       const result = await this.bridge.sendRequest('Unity.Script.Read', {
         path
-      }, 360000); // 6 minutes timeout for large files
+      }); // Timeout automatically determined by operation type
+
+      // Check if read was successful
+      if (result.success === false) {
+        throw new Error(result.error || result.message || `Failed to read script: ${path}`);
+      }
 
       return {
         content: [{
@@ -50,8 +55,15 @@ export class ScriptAPI {
    */
   async create(options: ScriptCreateOptions): Promise<CallToolResult> {
     this.logger.info(`Creating script: ${options.fileName}`);
+    
+    // Log content size for debugging
+    const contentSize = options.content ? options.content.length : 0;
+    this.logger.info(`Script content size: ${contentSize} characters`);
 
     try {
+      this.logger.info(`Sending Unity.Script.Create request with 360s timeout...`);
+      const startTime = Date.now();
+      
       const result = await this.bridge.sendRequest('Unity.Script.Create', {
         fileName: options.fileName,
         content: options.content,
@@ -59,7 +71,10 @@ export class ScriptAPI {
         template: options.template || 'MonoBehaviour',
         namespace: options.namespace,
         usings: options.usings || ['UnityEngine']
-      }, 360000); // 6 minutes timeout for large script creation
+      }); // Timeout automatically determined by operation type
+
+      const duration = Date.now() - startTime;
+      this.logger.info(`Unity.Script.Create completed in ${duration}ms`);
 
       return {
         content: [{
@@ -85,20 +100,40 @@ export class ScriptAPI {
     this.logger.info(`Deleting script: ${path}`);
 
     try {
+      this.logger.info(`Sending Unity.Script.Delete request with 360s timeout...`);
+      const startTime = Date.now();
+      
       const result = await this.bridge.sendRequest('Unity.Script.Delete', {
         path
-      }, 360000); // 6 minutes timeout
+      }); // Timeout automatically determined by operation type
+
+      const duration = Date.now() - startTime;
+      this.logger.info(`Unity.Script.Delete completed in ${duration}ms`);
+
+      // Check if deletion was successful
+      if (result.success === false) {
+        return {
+          content: [{
+            type: 'text',
+            text: `Delete failed: ${path}\n` +
+                  `Error: ${result.error || result.message || 'Unknown error'}\n` +
+                  `Note: ${result.message || 'File may not exist'}`
+          }]
+        };
+      }
 
       return {
         content: [{
           type: 'text',
           text: `Script deleted: ${path}\n` +
                 `Meta file: Also removed\n` +
-                `References: ${result.brokenReferences || 0} references may be broken`
+                `References: ${result.brokenReferences || 0} references may be broken\n` +
+                `Deletion time: ${duration}ms`
         }]
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
+      this.logger.error(`Delete failed: ${errorMessage}`);
       throw new Error(`Failed to delete script: ${errorMessage}`);
     }
   }
@@ -113,7 +148,7 @@ export class ScriptAPI {
       const result = await this.bridge.sendRequest('Unity.Script.Rename', {
         oldPath,
         newName
-      }, 360000); // 6 minutes timeout
+      }); // Timeout automatically determined by operation type
 
       return {
         content: [{

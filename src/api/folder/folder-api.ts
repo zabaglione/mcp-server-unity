@@ -28,7 +28,7 @@ export class FolderAPI {
       const result = await this.bridge.sendRequest('Unity.Folder.Create', {
         path: options.path,
         recursive: options.recursive !== false
-      }, 360000); // 6 minutes timeout
+      }); // Timeout automatically determined by operation type
 
       return {
         content: [{
@@ -54,7 +54,7 @@ export class FolderAPI {
     try {
       const result = await this.bridge.sendRequest('Unity.Folder.Delete', {
         path
-      }, 360000); // 6 minutes timeout
+      }); // Timeout automatically determined by operation type
 
       return {
         content: [{
@@ -81,7 +81,7 @@ export class FolderAPI {
       const result = await this.bridge.sendRequest('Unity.Folder.Rename', {
         oldPath,
         newName
-      }, 360000); // 6 minutes timeout
+      }); // Timeout automatically determined by operation type
 
       return {
         content: [{
@@ -110,7 +110,7 @@ export class FolderAPI {
         path,
         includeMetadata: true,
         recursive: false
-      }, 360000); // 6 minutes timeout for large folders
+      }); // Timeout automatically determined by operation type
 
       const formatAssets = (assets: any[]) => {
         return assets.map(asset => {

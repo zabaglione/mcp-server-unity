@@ -112,7 +112,7 @@ export class UnityBridgeService extends BaseService {
   /**
    * Send request to Unity and wait for response
    */
-  private async sendRequest(method: string, params: any): Promise<any> {
+  private async sendRequest(method: string, params: any, timeoutMs: number = 360000): Promise<any> {
     if (!this.isConnected) {
       await this.connect();
     }
@@ -134,13 +134,13 @@ export class UnityBridgeService extends BaseService {
         }
       });
 
-      // Timeout after 30 seconds
+      // Use configurable timeout (default 6 minutes)
       setTimeout(() => {
         if (this.pendingRequests.has(requestId)) {
           this.pendingRequests.delete(requestId);
-          reject(new Error(`Request timeout: ${method}`));
+          reject(new Error(`Request timeout: ${method} (${timeoutMs}ms)`));
         }
-      }, 30000);
+      }, timeoutMs);
     });
   }
 
@@ -164,7 +164,7 @@ export class UnityBridgeService extends BaseService {
         content,
         path,
         type
-      });
+      }, 360000); // 6 minutes for large asset creation
 
       return {
         content: [{
@@ -182,7 +182,7 @@ export class UnityBridgeService extends BaseService {
       await this.sendRequest('AssetDatabase.ImportAsset', {
         path,
         options: options || {}
-      });
+      }, 360000); // 6 minutes for large asset import
 
       return {
         content: [{
@@ -197,7 +197,7 @@ export class UnityBridgeService extends BaseService {
 
   async deleteAsset(path: string): Promise<CallToolResult> {
     try {
-      const result = await this.sendRequest('AssetDatabase.DeleteAsset', { path });
+      const result = await this.sendRequest('AssetDatabase.DeleteAsset', { path }, 360000); // 6 minutes for delete operations
       
       if (!result.success) {
         throw new Error(result.error || 'Delete failed');
@@ -219,7 +219,7 @@ export class UnityBridgeService extends BaseService {
       const result = await this.sendRequest('AssetDatabase.MoveAsset', {
         oldPath,
         newPath
-      });
+      }, 360000); // 6 minutes for move operations
 
       if (result.error) {
         throw new Error(result.error);
@@ -242,7 +242,7 @@ export class UnityBridgeService extends BaseService {
 
   async executeMenuItem(menuPath: string): Promise<CallToolResult> {
     try {
-      await this.sendRequest('EditorApplication.ExecuteMenuItem', { menuPath });
+      await this.sendRequest('EditorApplication.ExecuteMenuItem', { menuPath }, 120000); // 2 minutes for menu operations
       
       return {
         content: [{
@@ -257,7 +257,7 @@ export class UnityBridgeService extends BaseService {
 
   async compileScripts(): Promise<CallToolResult> {
     try {
-      await this.sendRequest('CompilationPipeline.RequestScriptCompilation', {});
+      await this.sendRequest('CompilationPipeline.RequestScriptCompilation', {}, 360000); // 6 minutes for compilation
       
       return {
         content: [{
@@ -288,7 +288,7 @@ export class UnityBridgeService extends BaseService {
         path,
         templateType,
         unityVersion: '6000.0'
-      });
+      }, 360000); // 6 minutes for code generation
 
       return {
         content: [{
@@ -308,7 +308,7 @@ export class UnityBridgeService extends BaseService {
         scriptPath,
         includeReferences: true,
         includeUsages: true
-      });
+      }, 360000); // 6 minutes for code analysis
 
       return result;
     } catch (error) {

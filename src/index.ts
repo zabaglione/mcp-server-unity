@@ -23,27 +23,28 @@ import { Unity6MCPServer } from './unity6-mcp-server.js';
  */
 
 async function main() {
-  console.log('Starting Unity 6 MCP Bridge v3.0.0...');
-  console.log('Requirements: Unity 6000.0+ with MCP Bridge package');
-  console.log('Connecting to Unity Editor...');
-  
+  // MCP servers must not output to stdout as it interferes with protocol
+  // All output must go through the logger which writes to stderr
   const server = new Unity6MCPServer();
   await server.start();
 }
 
 // Handle uncaught errors gracefully
 process.on('uncaughtException', (error) => {
-  console.error('Uncaught Exception:', error);
+  // Use stderr for error output
+  process.stderr.write(`Uncaught Exception: ${error}\n`);
   process.exit(1);
 });
 
 process.on('unhandledRejection', (reason, promise) => {
-  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  // Use stderr for error output
+  process.stderr.write(`Unhandled Rejection at: ${promise}, reason: ${reason}\n`);
   process.exit(1);
 });
 
 // Start the server
 main().catch((error) => {
-  console.error('Failed to start Unity 6 MCP Bridge:', error);
+  // Use stderr for error output
+  process.stderr.write(`Failed to start Unity 6 MCP Bridge: ${error}\n`);
   process.exit(1);
 });

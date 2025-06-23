@@ -1,6 +1,7 @@
 import net from 'net';
 import { EventEmitter } from 'events';
 import { Logger } from '../types/index.js';
+import { TIMEOUT_CONFIG, getOperationTimeout, logTimeoutInfo } from '../config/timeout-config.js';
 
 export interface UnityRequest {
   id: number;
@@ -54,6 +55,12 @@ export class UnityBridgeClient extends EventEmitter {
       this.socket = net.createConnection(connection.port, connection.host, () => {
         this.isConnected = true;
         this.logger.info('Connected to Unity 6 Editor Bridge');
+        
+        // Configure socket for stability and large data transfers
+        this.socket!.setTimeout(TIMEOUT_CONFIG.SOCKET_TIMEOUT);
+        this.socket!.setKeepAlive(true, TIMEOUT_CONFIG.KEEP_ALIVE_INTERVAL);
+        this.socket!.setNoDelay(false); // Enable Nagle's algorithm for large data
+        
         this.setupSocketHandlers();
         this.emit('connected');
         resolve(true);
@@ -71,7 +78,7 @@ export class UnityBridgeClient extends EventEmitter {
           this.socket.destroy();
           reject(new Error('Unity Bridge connection timeout - ensure Unity Editor is running with MCP Bridge on port 23456'));
         }
-      }, 3000);
+      }, TIMEOUT_CONFIG.CONNECTION_TIMEOUT);
     });
   }
 
@@ -156,10 +163,14 @@ export class UnityBridgeClient extends EventEmitter {
   /**
    * Send request to Unity and wait for response
    */
-  async sendRequest(method: string, params: any = {}, timeoutMs = 360000): Promise<any> {
+  async sendRequest(method: string, params: any = {}, timeoutMs?: number): Promise<any> {
     if (!this.isConnected) {
       await this.connect();
     }
+
+    // Use smart timeout based on operation type
+    const operationTimeout = timeoutMs || getOperationTimeout(method);
+    this.logger.info(logTimeoutInfo(method, operationTimeout));
 
     const requestId = this.requestId++;
     const request: UnityRequest = {
@@ -169,17 +180,26 @@ export class UnityBridgeClient extends EventEmitter {
     };
 
     return new Promise((resolve, reject) => {
-      // Setup timeout
+      // Setup timeout with operation-specific duration
       const timeout = setTimeout(() => {
         this.pendingRequests.delete(requestId);
-        reject(new Error(`Unity request timeout: ${method}`));
-      }, timeoutMs);
+        reject(new Error(`Unity request timeout: ${method} (${operationTimeout}ms)`));
+      }, operationTimeout);
 
       this.pendingRequests.set(requestId, { resolve, reject, timeout });
 
       // Send request
       const requestJson = JSON.stringify(request) + '\n';
-      this.socket!.write(requestJson, (error) => {
+      
+      // Check if socket is still writable
+      if (!this.socket || this.socket.destroyed || !this.socket.writable) {
+        clearTimeout(timeout);
+        this.pendingRequests.delete(requestId);
+        reject(new Error('Socket is not writable'));
+        return;
+      }
+      
+      this.socket.write(requestJson, (error) => {
         if (error) {
           clearTimeout(timeout);
           this.pendingRequests.delete(requestId);
@@ -198,14 +218,14 @@ export class UnityBridgeClient extends EventEmitter {
         clearTimeout(this.reconnectTimer);
       }
       
-      // Attempt to reconnect every 5 seconds
+      // Attempt to reconnect using configured interval
       this.reconnectTimer = setTimeout(async () => {
         try {
           await this.connect();
         } catch (error) {
           // Silent retry
         }
-      }, 5000);
+      }, TIMEOUT_CONFIG.RECONNECTION_INTERVAL);
     });
   }
 
@@ -215,6 +235,8 @@ export class UnityBridgeClient extends EventEmitter {
   private handleConnectionError(): void {
     this.isConnected = false;
     this.rejectAllPendingRequests('Connection error');
+    // Don't emit disconnected here to avoid immediate reconnection
+    // Let the 'close' event handle proper cleanup and reconnection
   }
 
   /**

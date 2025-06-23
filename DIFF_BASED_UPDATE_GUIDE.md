@@ -1,198 +1,237 @@
-# Diff-Based Script Update Guide
+⏺ Unity MCPサーバー diffベースアップデート機能仕様
 
-Unity MCPサーバーに、より直感的でエラーの少ないdiff形式のスクリプト更新機能を追加しました。
+  1. 基本機能
 
-## 新しいツール
+  script_update_diff
 
-### 1. `asset_update_script_diff`
-diff形式のパッチを使用してスクリプトを部分的に更新します。
+  ファイル単体に対してdiffを適用する基本機能
 
-### 2. `asset_create_diff_from_content`
-新しい完全なコンテンツと既存のスクリプトを比較してdiffパッチを生成します。
+  script_update_diff(
+    path: string,           // 対象ファイルパス (例: "Assets/Scripts/Player.cs")
+    diff: string,           // unified diff形式の文字列
+    options?: DiffOptions   // オプション設定
+  ): DiffResult
 
-## 使用方法
+  interface DiffOptions {
+    // マッチング設定
+    fuzzy?: number;              // ファジーマッチング許容度 (0-100, デフォルト: 0)
+    ignoreWhitespace?: boolean;  // 空白文字を無視 (デフォルト: false)
+    ignoreCase?: boolean;        // 大文字小文字を無視 (デフォルト: false)
 
-### 1. 行番号指定による更新
+    // 安全性設定
+    createBackup?: boolean;      // 適用前にバックアップ作成 (デフォルト: true)
+    validateSyntax?: boolean;    // 適用後に構文チェック (デフォルト: true)
+    dryRun?: boolean;           // 実際には適用しない (デフォルト: false)
 
-```json
-{
-  "name": "asset_update_script_diff",
-  "arguments": {
-    "fileName": "PlayerController.cs",
-    "patches": [{
-      "startLine": 10,
-      "endLine": 12,
-      "newContent": "    public float moveSpeed = 10f;\n    public float jumpHeight = 5f;"
-    }]
+    // エラーハンドリング
+    partial?: boolean;          // 部分的な適用を許可 (デフォルト: false)
+    stopOnError?: boolean;      // エラー時に中断 (デフォルト: true)
   }
-}
-```
 
-### 2. パターン検索による更新
+  interface DiffResult {
+    success: boolean;           // 全体の成功/失敗
+    path: string;              // 処理したファイルパス
+    hunksTotal: number;        // 総ハンク数
+    hunksApplied: number;      // 適用成功したハンク数
+    hunksRejected: number;     // 拒否されたハンク数
 
-```json
-{
-  "name": "asset_update_script_diff",
-  "arguments": {
-    "fileName": "GameManager.cs",
-    "patches": [{
-      "searchPattern": "void Start()",
-      "newContent": "    void Start()\n    {\n        // Initialize game\n        InitializeGame();\n    }",
-      "matchMode": "exact"
-    }]
+    // 詳細情報
+    applied: HunkResult[];     // 適用されたハンクの詳細
+    rejected: RejectedHunk[];  // 拒否されたハンクの詳細
+    warnings: string[];        // 警告メッセージ
+
+    // バックアップ情報
+    backupPath?: string;       // バックアップファイルのパス
+
+    // プレビュー (dryRun時のみ)
+    preview?: string;          // 適用後のファイル内容プレビュー
+
+    // 検証結果
+    syntaxValid?: boolean;     // 構文チェック結果
+    compileErrors?: string[];  // コンパイルエラー
   }
-}
-```
 
-### 3. コンテンツベースの置換
-
-```json
-{
-  "name": "asset_update_script_diff",
-  "arguments": {
-    "fileName": "Enemy.cs",
-    "patches": [{
-      "oldContent": "    void Update()\n    {\n        // TODO: Implement AI\n    }",
-      "newContent": "    void Update()\n    {\n        UpdateAI();\n        CheckPlayerDistance();\n    }"
-    }]
+  interface HunkResult {
+    hunkIndex: number;         // ハンクのインデックス
+    startLine: number;         // 適用開始行
+    linesRemoved: number;      // 削除された行数
+    linesAdded: number;        // 追加された行数
   }
-}
-```
 
-### 4. コンテキスト検証付き更新
-
-```json
-{
-  "name": "asset_update_script_diff", 
-  "arguments": {
-    "fileName": "UIManager.cs",
-    "patches": [{
-      "startLine": 25,
-      "contextBefore": ["    private void InitializeUI()"],
-      "contextAfter": ["    }"],
-      "newContent": "        CreateMainMenu();\n        SetupEventHandlers();"
-    }],
-    "validateContext": true
+  interface RejectedHunk {
+    hunkIndex: number;         // ハンクのインデックス
+    reason: string;            // 拒否理由
+    expectedContext: string[]; // 期待されていたコンテキスト
+    actualContext: string[];   // 実際のコンテキスト
+    suggestion?: string;       // 修正提案
   }
-}
-```
 
-### 5. ドライラン（プレビュー）
+  2. 複数ファイル対応
 
-```json
-{
-  "name": "asset_update_script_diff",
-  "arguments": {
-    "fileName": "PlayerHealth.cs",
-    "dryRun": true,
-    "patches": [{
-      "searchPattern": "health > 0",
-      "newContent": "health > 0 && !isDead",
-      "matchMode": "fuzzy"
-    }]
+  script_apply_patch
+
+  複数ファイルへの一括パッチ適用
+
+  script_apply_patch(
+    patch: string | PatchFile[],  // Git形式のパッチ or 個別ファイル配列
+    options?: PatchOptions
+  ): PatchResult
+
+  interface PatchFile {
+    path: string;                 // ファイルパス
+    diff: string;                 // そのファイルのdiff
+    priority?: number;            // 適用優先順位 (小さいほど先)
   }
-}
-```
 
-## パッチオプション詳細
+  interface PatchOptions extends DiffOptions {
+    // トランザクション設定
+    atomic?: boolean;             // 全て成功 or 全てロールバック (デフォルト: true)
+    continueOnError?: boolean;    // エラー時も継続 (デフォルト: false)
 
-### 位置指定方法
+    // 進捗コールバック
+    onProgress?: (current: number, total: number, file: string) => void;
+  }
 
-1. **行番号ベース**
-   - `startLine`: 開始行（1ベース）
-   - `endLine`: 終了行（省略時はstartLineと同じ）
+  interface PatchResult {
+    success: boolean;             // 全体の成功/失敗
+    filesTotal: number;           // 総ファイル数
+    filesProcessed: number;       // 処理されたファイル数
+    filesSucceeded: number;       // 成功したファイル数
+    filesFailed: number;          // 失敗したファイル数
 
-2. **パターンベース**
-   - `searchPattern`: 検索パターン
-   - `matchMode`: 
-     - `"exact"`: 完全一致（デフォルト）
-     - `"fuzzy"`: 大文字小文字無視
-     - `"regex"`: 正規表現
-   - `occurrence`: 何番目の出現を置換するか（デフォルト: 1）
+    // 個別結果
+    results: Map<string, DiffResult>;  // ファイルパスごとの結果
 
-3. **コンテンツベース**
-   - `oldContent`: 置換対象の複数行コンテンツ
+    // ロールバック情報
+    rollbackAvailable: boolean;   // ロールバック可能か
+    rollbackPaths?: string[];     // ロールバック対象パス
+  }
 
-### 検証オプション
+  3. diffフォーマット仕様
 
-- `contextBefore`: 変更前に存在すべき行の配列
-- `contextAfter`: 変更後に存在すべき行の配列
-- `validateContext`: コンテキスト検証を有効化（デフォルト: true）
+  サポートするdiff形式
 
-## 利点
+  --- a/Assets/Scripts/Player.cs
+  +++ b/Assets/Scripts/Player.cs
+  @@ -10,7 +10,7 @@ public class Player : MonoBehaviour
+       {
+           health = maxHealth;
+           speed = 5f;
+  -        Debug.Log("Player initialized");
+  +        Debug.Log($"Player initialized with health: {health}");
+       }
 
-1. **視覚的に分かりやすい**
-   - 行番号やパターンで位置を指定
-   - コンテキストで正しい場所を確認
+       void Update()
 
-2. **エラーが少ない**
-   - 文字位置の計算不要
-   - BOM処理を自動化
-   - コンテキスト検証で誤った場所への適用を防止
+  拡張unified diff形式（オプション）
 
-3. **柔軟な指定方法**
-   - 行番号、パターン、コンテンツの3つの方法
-   - 正規表現サポート
-   - 複数回出現時の指定も可能
+  --- a/Assets/Scripts/Player.cs
+  +++ b/Assets/Scripts/Player.cs
+  @@ -10,7 +10,7 @@ public class Player : MonoBehaviour ## Start()
+  - ## でメソッド名やクラス名を指定可能（より正確なマッチング）
 
-4. **安全な更新**
-   - ドライラン機能でプレビュー可能
-   - アトミック書き込みでファイル破損を防止
-   - Unity自動リフレッシュ連携
+  4. エラーハンドリング
 
-## 実装例
+  エラーコード
 
-### メソッド追加
-```json
-{
-  "patches": [{
-    "searchPattern": "public class PlayerController",
-    "contextAfter": ["{"],
-    "newContent": "public class PlayerController : MonoBehaviour\n{\n    // New properties\n    public float speed = 5f;\n    public float jumpPower = 10f;"
-  }]
-}
-```
+  enum DiffErrorCode {
+    FILE_NOT_FOUND = "FILE_NOT_FOUND",
+    INVALID_DIFF_FORMAT = "INVALID_DIFF_FORMAT",
+    CONTEXT_MISMATCH = "CONTEXT_MISMATCH",
+    SYNTAX_ERROR = "SYNTAX_ERROR",
+    COMPILE_ERROR = "COMPILE_ERROR",
+    BACKUP_FAILED = "BACKUP_FAILED",
+    PERMISSION_DENIED = "PERMISSION_DENIED"
+  }
 
-### エラーハンドリング追加
-```json
-{
-  "patches": [{
-    "searchPattern": "LoadData();",
-    "newContent": "try\n        {\n            LoadData();\n        }\n        catch (Exception e)\n        {\n            Debug.LogError($\"Failed to load data: {e.Message}\");\n        }",
-    "contextBefore": ["    void Start()"]
-  }]
-}
-```
+  interface DiffError {
+    code: DiffErrorCode;
+    message: string;
+    file?: string;
+    line?: number;
+    hunk?: number;
+  }
 
-### 複数箇所の一括更新
-```json
-{
-  "patches": [
-    {
-      "searchPattern": "Debug.Log",
-      "newContent": "// Debug.Log",
-      "matchMode": "fuzzy",
-      "occurrence": 1
-    },
-    {
-      "searchPattern": "Debug.Log", 
-      "newContent": "// Debug.Log",
-      "matchMode": "fuzzy",
-      "occurrence": 2
-    }
-  ]
-}
-```
+  5. ユーティリティ機能
 
-## 既存の部分更新との使い分け
+  script_create_diff
 
-- **文字位置ベース（`asset_update_script_partial`）**
-  - 精密な位置指定が必要な場合
-  - プログラムによる自動生成
-  - 高速な小規模変更
+  2つのコンテンツからdiffを生成
 
-- **Diffベース（`asset_update_script_diff`）**
-  - 人間が読みやすい形式
-  - 行単位の変更
-  - コンテキスト検証が必要な場合
-  - 複雑なパターンマッチング
+  script_create_diff(
+    original: string | { path: string },  // 元のコンテンツまたはファイルパス
+    modified: string | { path: string },  // 変更後のコンテンツまたはファイルパス
+    options?: CreateDiffOptions
+  ): string
+
+  interface CreateDiffOptions {
+    contextLines?: number;        // コンテキスト行数 (デフォルト: 3)
+    ignoreWhitespace?: boolean;
+    ignoreCase?: boolean;
+    includeHeader?: boolean;      // ファイルヘッダを含む (デフォルト: true)
+  }
+
+  script_validate_diff
+
+  diffの妥当性を事前検証
+
+  script_validate_diff(
+    path: string,
+    diff: string
+  ): ValidationResult
+
+  interface ValidationResult {
+    valid: boolean;
+    applicable: boolean;          // 適用可能か
+    conflicts: ConflictInfo[];    // 予想されるコンフリクト
+    warnings: string[];
+  }
+
+  6. Unity統合機能
+
+  自動リフレッシュ
+
+  // DiffOptionsに追加
+  interface DiffOptions {
+    // ... 既存のオプション
+
+    // Unity統合
+    refreshAssets?: boolean;      // AssetDatabase.Refresh() (デフォルト: true)
+    reimportAssets?: boolean;     // 変更ファイルの再インポート (デフォルト: true)
+    recompile?: boolean;          // スクリプト再コンパイル (デフォルト: true)
+  }
+
+  7. 使用例
+
+  基本的な使用
+
+  // 単一ファイルの更新
+  const result = await script_update_diff(
+    "Assets/Scripts/Player.cs",
+    `@@ -15,3 +15,3 @@
+  -    private float speed = 5f;
+  +    private float speed = 10f;
+   `,
+    { validateSyntax: true }
+  );
+
+  // Gitスタイルのパッチ適用
+  const patchResult = await script_apply_patch(
+    `diff --git a/Assets/Scripts/Player.cs b/Assets/Scripts/Player.cs
+  index abc123..def456 100644
+  --- a/Assets/Scripts/Player.cs
+  +++ b/Assets/Scripts/Player.cs
+  @@ -15,3 +15,3 @@
+  -    private float speed = 5f;
+  +    private float speed = 10f;`,
+    { atomic: true }
+  );
+
+  8. セキュリティ考慮事項
+
+  - パス traversal攻撃の防止（Assets/フォルダ外へのアクセス制限）
+  - 大きすぎるdiffの拒否（DoS対策）
+  - バックアップファイルの自動クリーンアップ
+  - 適切な権限チェック
+
+  この仕様に基づいて実装を進めていただければ、安全で使いやすいdiffベースのファイル更新機能が実現できると思います。

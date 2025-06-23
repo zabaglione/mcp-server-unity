@@ -50,7 +50,8 @@
       "Bash(USE_OPTIMIZED_SERVICES=true node build/index.js --help 2 >& 1)",
       "Bash(sed:*)",
       "WebFetch(domain:docs.unity3d.com)",
-      "Bash(./build/unity6-mcp-server.js)"
+      "Bash(./build/unity6-mcp-server.js)",
+      "Bash(cat:*)"
     ],
     "deny": []
   }
