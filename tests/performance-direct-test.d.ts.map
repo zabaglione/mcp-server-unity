@@ -1,1 +1,0 @@
-{"version":3,"file":"performance-direct-test.d.ts","sourceRoot":"","sources":["performance-direct-test.ts"],"names":[],"mappings":"AAiBA,qBAAa,qBAAqB;IAChC,OAAO,CAAC,QAAQ,CAAM;IACtB,OAAO,CAAC,MAAM,CAAiB;IAC/B,OAAO,CAAC,cAAc,CAAoC;IAC1D,OAAO,CAAC,WAAW,CAAc;IACjC,OAAO,CAAC,OAAO,CAAyB;;YAQ1B,YAAY;IAuDpB,gBAAgB,IAAI,OAAO,CAAC,IAAI,CAAC;IAsGvC,OAAO,CAAC,YAAY;YAwBN,aAAa;CAiB5B"}

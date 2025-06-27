@@ -1,27 +1,11 @@
-export interface UnityProject {
-  projectPath: string;
-  assetsPath: string;
-  scriptsPath: string;
-}
+/**
+ * Unity 6 MCP Bridge v3.0 Type Definitions
+ * Minimal types required for the Unity Bridge architecture
+ */
 
-export interface BuildTarget {
-  name: string;
-  value: string;
-}
-
-export interface AssetType {
-  name: string;
-  extensions: string[];
-}
-
-// Remove ToolResponse as we'll use CallToolResult from MCP SDK directly
-
-export interface FileSearchOptions {
-  directory: string;
-  fileName?: string | null;
-  extension: string;
-}
-
+/**
+ * Logger interface for Unity Bridge components
+ */
 export interface Logger {
   info(message: string): void;
   warn(message: string): void;

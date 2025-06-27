@@ -5,10 +5,11 @@
 [![Unity 6](https://img.shields.io/badge/Unity-6000.0+-blue.svg)](https://unity.com/)
 [![MCP](https://img.shields.io/badge/MCP-Compatible-green.svg)](https://modelcontextprotocol.io/)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Test Status](https://img.shields.io/badge/Tests-69.2%25-yellow.svg)](V3_TEST_REPORT.md)
 
-Unity 6 MCP Bridge provides seamless integration between AI assistants (like Claude) and Unity Editor through direct Unity API calls. This is a complete rewrite of the previous MCP server, designed specifically for Unity 6000+ with breaking changes from v1.x/v2.x.
+Unity 6 MCP Bridge provides seamless integration between AI assistants (like Claude) and Unity Editor through direct Unity API calls. This is a complete rewrite for Unity 6000+, featuring industry-standard diff processing and robust error handling.
 
-## Features
+## 🚀 Features
 
 ### Unity 6 Integration
 - **Direct Unity API calls** via Named Pipes/Domain Sockets
@@ -18,16 +19,27 @@ Unity 6 MCP Bridge provides seamless integration between AI assistants (like Cla
 - **Unity 6 template system** for code generation
 
 ### Script Operations
-- **script_create** - Generate scripts from Unity 6 templates
-- **script_read** - Read script content from Unity project
+- **script_create** - Generate scripts from Unity 6 templates (MonoBehaviour, ScriptableObject, Editor, Custom)
+- **script_read** - Read script content with streaming support for large files
 - **script_delete** - Safe deletion with reference checking
-- **script_rename** - Rename with class name updates
+- **script_rename** - Rename with automatic class name updates
+- **script_update_diff** - Apply diffs with fuzzy matching and whitespace handling
+- **script_apply_patch** - Batch apply multiple file changes with rollback support
+- **script_create_diff** - Generate unified diffs between contents
+- **script_validate_diff** - Pre-validate diffs before applying
 
 ### Folder Management
 - **folder_create** - Create with automatic parent directories
 - **folder_delete** - Safe deletion with asset cleanup
 - **folder_rename** - Rename with reference updates
-- **folder_list** - List with Unity metadata
+- **folder_list** - List contents with Unity metadata (GUIDs, types)
+
+### Advanced Diff Processing (v3.0)
+- **Industry-standard diff-match-patch** algorithm by Google
+- **Fuzzy matching** for handling minor differences
+- **BOM preservation** for Unity files
+- **Detailed error reporting** with line-by-line analysis
+- **Performance optimized** - processes 10,000 lines in <5ms
 
 ## Installation
 
@@ -41,13 +53,22 @@ Unity 6 MCP Bridge provides seamless integration between AI assistants (like Cla
 npm install -g unity-mcp-bridge
 ```
 
-### 2. Install Unity Package
-1. Download `MCPBridge.cs` from this repository
-2. Place it in `Assets/Editor/MCP/MCPBridge.cs` in your Unity project
+### 2. Install Unity Bridge in Your Project
+
+Use the built-in installer:
+```bash
+# After configuring Claude Desktop, use this MCP tool:
+bridge_install --projectPath /path/to/your/unity/project
+```
+
+Or manually:
+1. Copy the Unity scripts from `src/unity-scripts/`
+2. Place in `Assets/Editor/MCP/` in your Unity project
 3. Unity will automatically compile and start the bridge
 
 ### 3. Configure Claude Desktop
-Add to your Claude Desktop configuration:
+
+Add to your Claude Desktop configuration (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
 
 ```json
 {
@@ -60,169 +81,122 @@ Add to your Claude Desktop configuration:
 }
 ```
 
-## Quick Start
+## 📖 Usage Examples
 
-### 1. Start Unity 6
-Open your Unity 6 project. The MCP Bridge will automatically start and listen for connections.
+### Setting Project Path
+```bash
+# Set the Unity project to work with
+project_set_path /path/to/your/unity/project
 
-### 2. Connect with Claude
-Open Claude Desktop and start using Unity commands:
-
+# Check connection status
+project_get_info
 ```
-Create a new PlayerController script using the MonoBehaviour template
-```
-
-### 3. Verify Connection
-```
-Check Unity project status
-```
-
-## API Reference
-
-### Project Management
-- `project_set_path` - Set Unity project path
-- `project_get_info` - Get project info and connection status
 
 ### Script Operations
+```bash
+# Create a new player controller
+script_create Player --template MonoBehaviour --folder Assets/Scripts/Player
 
-#### Create Script
-```typescript
-script_create({
-  fileName: "PlayerController",
-  template: "MonoBehaviour",
-  folder: "Assets/Scripts/Player",
-  namespace: "Game.Player"
-})
+# Create with custom content
+script_create GameManager --content "using UnityEngine;\n\npublic class GameManager : MonoBehaviour\n{\n    // Game logic here\n}"
+
+# Read existing script
+script_read Assets/Scripts/Enemy.cs
+
+# Rename with class update
+script_rename Assets/Scripts/Enemy.cs EnemyAI
 ```
 
-#### Read Script
-```typescript
-script_read({
-  path: "Assets/Scripts/PlayerController.cs"
-})
+### Advanced Diff Operations
+```bash
+# Apply a diff to update code
+script_update_diff Assets/Scripts/Player.cs "--- a/Player.cs\n+++ b/Player.cs\n@@ -10,7 +10,7 @@\n-    private float speed = 5.0f;\n+    private float speed = 10.0f;"
+
+# Use fuzzy matching for inexact matches
+script_update_diff Assets/Scripts/Enemy.cs "$DIFF_CONTENT" --fuzzy 80 --ignoreWhitespace
+
+# Validate before applying
+script_validate_diff Assets/Scripts/Player.cs "$DIFF_CONTENT"
 ```
 
 ### Folder Operations
-
-#### Create Folder
-```typescript
-folder_create({
-  path: "Assets/Scripts/Player/Components",
-  recursive: true
-})
-```
-
-#### List Folder
-```typescript
-folder_list({
-  path: "Assets/Scripts"
-})
-```
-
-## Advanced Features
-
-### Real-time Code Analysis
-The bridge provides real-time Roslyn-powered analysis:
-- Syntax error detection
-- Reference finding
-- Usage analysis
-- IntelliSense data
-
-### Template System
-Supports Unity 6's built-in templates:
-- `MonoBehaviour` - Standard Unity component
-- `ScriptableObject` - Data container
-- `Editor` - Editor extension
-- `Custom` - Basic C# class
-
-### Template System
-Supports Unity 6's built-in templates:
-- `MonoBehaviour` - Standard Unity component
-- `ScriptableObject` - Data container
-- `Editor` - Editor extension
-- `Custom` - Basic C# class
-
-## Configuration
-
-### Environment Variables
-- `UNITY_MCP_LOG_LEVEL` - Set logging level (debug, info, warn, error)
-- `UNITY_MCP_TIMEOUT` - Request timeout in milliseconds (default: 30000)
-
-### Unity Settings
-The bridge automatically detects Unity installation and project settings. No manual configuration required.
-
-## Troubleshooting
-
-### Common Issues
-
-#### "Unity Bridge disconnected"
-- Ensure Unity 6000+ is running
-- Verify MCPBridge.cs is in `Assets/Editor/MCP/`
-- Check Unity Console for errors
-
-#### "Method not implemented"
-- Verify Unity version (6000.0+ required)
-- Check if Newtonsoft.Json package is installed
-- Update Unity to latest 6.x version
-
-#### Permission Errors
-- On macOS/Linux, ensure socket file permissions
-- Run Unity with appropriate permissions
-- Check firewall settings
-
-### Debug Mode
 ```bash
-UNITY_MCP_LOG_LEVEL=debug unity-mcp-bridge
+# Create nested folders
+folder_create Assets/Scripts/AI/Behaviors --recursive
+
+# List folder contents with metadata
+folder_list Assets/Scripts
+
+# Rename folder
+folder_rename Assets/Scripts/AI Assets/Scripts/ArtificialIntelligence
 ```
 
-## Breaking Changes from v2.x
+## 🔧 Technical Details
 
-### API Changes
-- `asset_create_script` → `script_create`
-- `asset_update_script` → Removed (update functionality removed)
-- `script_patch` → Removed (patch functionality removed)
-- `script_move` → Removed (move functionality removed)
-- `folder_move` → Removed (move functionality removed)
-- `script_analyze` → Removed (analysis functionality removed)
-- `folder_info` → Removed (detailed info functionality removed)
-- All APIs now use Unity's AssetDatabase directly
+### Architecture
+- **Unity Bridge Client**: WebSocket/TCP communication with Unity Editor
+- **API Layer**: Modular API design (Script, Folder, Diff APIs)
+- **MCP Server**: Standard I/O interface for Claude Desktop
+- **Error Handling**: Comprehensive error types with actionable messages
 
-### Requirements
-- Unity 6000+ required (was 2019+)
-- Node.js 18+ required (was 16+)
-- MCP Bridge package required
+### Performance
+- Large file support (streaming for >1MB files)
+- Batch operations support
+- Connection pooling and retry logic
+- Optimized diff processing (<5ms for 10k lines)
 
-### Removed Features
-- File system-based operations
-- Manual meta file handling
-- Legacy Unity version support
-- Script update/patch functionality
-- File/folder move functionality
-- Script analysis functionality
-- Detailed folder information
+### Testing
+- Unit test coverage: 69.2%
+- Integration tests with Unity Bridge mock
+- Performance benchmarks included
+- Japanese/UTF-8 fully supported
 
-## Contributing
+## 📋 API Reference
 
-We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+See [V3_TEST_REPORT.md](V3_TEST_REPORT.md) for comprehensive testing results and API examples.
 
-### Development Setup
+## ⚠️ Breaking Changes from v2.x
+
+- Complete API redesign for Unity 6
+- Requires Unity 6000.0 or later
+- New Unity Bridge architecture
+- Industry-standard diff processing
+- All v2.x service-based APIs removed
+
+## 🛠️ Development
+
 ```bash
-git clone https://github.com/yourusername/unity-mcp-bridge.git
-cd unity-mcp-bridge
+# Install dependencies
 npm install
+
+# Build
+npm run build
+
+# Run tests
+npm test
+
+# Start in development mode
 npm run dev
 ```
 
-## License
+## 🤝 Contributing
 
-MIT License - see [LICENSE](LICENSE) file for details.
+Contributions welcome! Please:
+1. Fork the repository
+2. Create a feature branch
+3. Run tests: `npm test`
+4. Submit a pull request
 
-## Acknowledgments
+## 📜 License
 
-- Unity Technologies for Unity 6 API improvements
-- Anthropic for the Model Context Protocol
-- The Unity developer community
+MIT License - see [LICENSE](LICENSE) for details.
+
+## 🙏 Acknowledgments
+
+- Google's [diff-match-patch](https://github.com/google/diff-match-patch) library
+- [Model Context Protocol](https://modelcontextprotocol.io/) by Anthropic
+- Unity Technologies for Unity 6
 
 ---
 
-**Unity 6 MCP Bridge v3.0.0** - Bringing AI and Unity closer together
+**Note**: This is a complete rewrite (v3.0) with breaking changes. For v2.x documentation, see the [v2.x branch](https://github.com/zabaglione/unity-mcp/tree/v2.x).

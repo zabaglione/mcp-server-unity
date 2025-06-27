@@ -17,7 +17,7 @@ import {
   DiffErrorCode
 } from '../../diff/types.js';
 import { DiffParser } from '../../diff/parser.js';
-import { DiffApplier } from '../../diff/applier.js';
+import { DiffApplierV2 as DiffApplier } from '../../diff/applier-v2.js';
 import path from 'path';
 
 export class ScriptDiffAPI {

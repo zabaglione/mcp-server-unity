@@ -194,8 +194,8 @@ export class DiffParser {
     const diff: string[] = [];
     
     // Add file headers
-    diff.push(`--- ${oldPath}`);
-    diff.push(`+++ ${newPath}`);
+    diff.push(`--- a/${oldPath}`);
+    diff.push(`+++ b/${newPath}`);
 
     // Find differences using a simple algorithm
     const changes = this.findChanges(oldLines, newLines);
