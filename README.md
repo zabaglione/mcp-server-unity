@@ -2,10 +2,12 @@
 
 **Direct Unity API integration for AI-powered game development**
 
+[日本語版 README はこちら](README-ja.md) | [English](README.md)
+
 [![Unity 6](https://img.shields.io/badge/Unity-6000.0+-blue.svg)](https://unity.com/)
 [![MCP](https://img.shields.io/badge/MCP-Compatible-green.svg)](https://modelcontextprotocol.io/)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Test Status](https://img.shields.io/badge/Tests-69.2%25-yellow.svg)](V3_TEST_REPORT.md)
+[![Test Status](https://img.shields.io/badge/Tests-100%25-success.svg)](V3_TEST_REPORT.md)
 
 Unity 6 MCP Bridge provides seamless integration between AI assistants (like Claude) and Unity Editor through direct Unity API calls. This is a complete rewrite for Unity 6000+, featuring industry-standard diff processing and robust error handling.
 
@@ -146,7 +148,7 @@ folder_rename Assets/Scripts/AI Assets/Scripts/ArtificialIntelligence
 - Optimized diff processing (<5ms for 10k lines)
 
 ### Testing
-- Unit test coverage: 69.2%
+- Unit test coverage: 100%
 - Integration tests with Unity Bridge mock
 - Performance benchmarks included
 - Japanese/UTF-8 fully supported

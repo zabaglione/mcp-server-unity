@@ -82,62 +82,49 @@ export class DiffApplierV2 {
     const contentWithoutBom = bom ? content.substring(1) : content;
 
     try {
-      // Convert unified diff to patch format
-      const patches = this.unifiedDiffToPatches(diff, contentWithoutBom);
-      
-      // Configure diff-match-patch for whitespace handling
-      if (options.ignoreWhitespace) {
-        // Increase match threshold to be more lenient with whitespace
-        this.dmp.Match_Threshold = 0.8;
-        this.dmp.Match_Distance = 1000;
-      }
-      
-      // Apply patches with fuzzy matching if enabled
-      const [resultContent, results] = this.applyPatches(
-        contentWithoutBom, 
-        patches, 
-        options
-      );
-
-      let finalContent = resultContent;
-
-      // Restore BOM if it was present
-      finalContent = bom + finalContent;
-
-      // Convert results to our format
+      // Apply the parsed diff directly using our own implementation
+      let resultContent = contentWithoutBom;
       const applied: HunkResult[] = [];
       const rejected: RejectedHunk[] = [];
       const warnings: string[] = [];
 
-      results.forEach((result, index) => {
-        if (result) {
+      // Split content into lines for processing
+      const lines = resultContent.split('\n');
+      
+      // Sort hunks by line number (reverse order for applying from bottom to top)
+      const sortedHunks = [...parsedDiff.hunks].sort((a, b) => b.oldStart - a.oldStart);
+      
+      for (const hunk of sortedHunks) {
+        // Try to apply the hunk
+        const hunkResult = this.applyHunk(lines, hunk, options);
+        
+        if (hunkResult.applied) {
           applied.push({
-            hunkIndex: index,
-            startLine: this.getStartLine(patches[index]),
-            linesRemoved: this.getLinesRemoved(patches[index]),
-            linesAdded: this.getLinesAdded(patches[index])
+            hunkIndex: parsedDiff.hunks.indexOf(hunk),
+            startLine: hunk.oldStart,
+            linesRemoved: hunkResult.linesRemoved,
+            linesAdded: hunkResult.linesAdded
           });
         } else {
           rejected.push({
-            hunkIndex: index,
-            reason: 'Patch could not be applied',
-            expectedContext: this.getExpectedContext(patches[index]),
-            actualContext: this.getActualContext(contentWithoutBom, patches[index]),
-            suggestion: options.fuzzy 
-              ? 'Try increasing the fuzzy matching threshold'
-              : 'Enable fuzzy matching with the --fuzzy option'
+            hunkIndex: parsedDiff.hunks.indexOf(hunk),
+            reason: hunkResult.reason || 'Could not apply hunk',
+            expectedContext: hunkResult.expectedContext || [],
+            actualContext: hunkResult.actualContext || [],
+            suggestion: hunkResult.suggestion || 'Check file version or use fuzzy matching'
           });
         }
-      });
+      }
+
+      // Join lines back into content
+      resultContent = lines.join('\n');
+
+      // Restore BOM if it was present
+      const finalContent = bom + resultContent;
 
       // Add warnings for fuzzy matches
       if (options.fuzzy && applied.length > 0) {
-        const fuzzyCount = applied.filter((_, i) => 
-          this.wasFuzzyMatch(patches[i], contentWithoutBom)
-        ).length;
-        if (fuzzyCount > 0) {
-          warnings.push(`${fuzzyCount} hunk(s) applied with fuzzy matching`);
-        }
+        warnings.push(`Applied ${applied.length} hunk(s) with fuzzy matching`);
       }
 
       return {
@@ -145,7 +132,7 @@ export class DiffApplierV2 {
         result: {
           success: rejected.length === 0,
           path: parsedDiff.newPath || '',
-          hunksTotal: patches.length,
+          hunksTotal: parsedDiff.hunks.length,
           hunksApplied: applied.length,
           hunksRejected: rejected.length,
           applied,
@@ -162,153 +149,203 @@ export class DiffApplierV2 {
   }
 
   /**
-   * Convert unified diff to diff-match-patch patches
+   * Apply a single hunk to the lines array
    */
-  private static unifiedDiffToPatches(
-    unifiedDiff: string,
-    originalContent: string
-  ): any[] {
-    // Parse the unified diff to extract hunks
-    const parsedDiffs = DiffParser.parse(unifiedDiff);
-    if (parsedDiffs.length === 0) {
-      return [];
+  private static applyHunk(
+    lines: string[],
+    hunk: any,
+    options: DiffApplierV2Options
+  ): {
+    applied: boolean;
+    linesRemoved: number;
+    linesAdded: number;
+    reason?: string;
+    expectedContext?: string[];
+    actualContext?: string[];
+    suggestion?: string;
+  } {
+    const startLine = hunk.oldStart - 1; // Convert to 0-based index
+    let currentLine = startLine;
+    let linesRemoved = 0;
+    let linesAdded = 0;
+    const expectedLines: string[] = [];
+    const actualLines: string[] = [];
+    const newLines: string[] = [];
+
+    // Extract expected content and new content from hunk
+    for (const line of hunk.lines) {
+      switch (line.type) {
+        case 'context':
+          expectedLines.push(line.content);
+          newLines.push(line.content);
+          break;
+        case 'remove':
+          expectedLines.push(line.content);
+          linesRemoved++;
+          break;
+        case 'add':
+          newLines.push(line.content);
+          linesAdded++;
+          break;
+      }
     }
 
-    const patches: any[] = [];
-    const originalLines = originalContent.split('\n');
-    
-    // Process each file diff
-    for (const fileDiff of parsedDiffs) {
-      // Sort hunks by line number
-      const sortedHunks = [...fileDiff.hunks].sort((a, b) => a.oldStart - b.oldStart);
-      
-      // Build the modified content by applying hunks
-      let modifiedLines = [...originalLines];
-      let offset = 0;
-      
-      for (const hunk of sortedHunks) {
-        const startIndex = hunk.oldStart - 1 + offset;
-        let removeCount = 0;
-        let insertLines: string[] = [];
-        
-        // Process hunk lines
-        for (const line of hunk.lines) {
-          switch (line.type) {
-            case 'remove':
-              removeCount++;
+    // Get actual lines from the file
+    for (let i = 0; i < expectedLines.length; i++) {
+      if (startLine + i < lines.length) {
+        actualLines.push(lines[startLine + i]);
+      }
+    }
+
+    // Check if the hunk can be applied
+    let canApply = false;
+
+    if (options.fuzzy) {
+      // Fuzzy matching - look for similar content nearby
+      const searchRange = Math.min(options.fuzzy || 100, 100);
+      for (let offset = 0; offset <= searchRange; offset++) {
+        for (const sign of [0, -1, 1]) {
+          const testOffset = sign * offset;
+          const testStart = startLine + testOffset;
+          
+          if (testStart >= 0 && testStart + expectedLines.length <= lines.length) {
+            const testLines = lines.slice(testStart, testStart + expectedLines.length);
+            if (this.fuzzyMatch(expectedLines, testLines, options)) {
+              canApply = true;
+              currentLine = testStart;
               break;
-            case 'add':
-              insertLines.push(line.content);
-              break;
-            // context lines are just for validation
+            }
           }
         }
-        
-        // Apply the changes
-        modifiedLines.splice(startIndex, removeCount, ...insertLines);
-        offset += insertLines.length - removeCount;
+        if (canApply) break;
       }
-      
-      const modifiedContent = modifiedLines.join('\n');
-      
-      // Create patches using diff-match-patch
-      const diffs = this.dmp.diff_main(originalContent, modifiedContent);
-      const filePatches = this.dmp.patch_make(originalContent, diffs);
-      patches.push(...filePatches);
-    }
-
-    return patches;
-  }
-
-
-  /**
-   * Apply patches with our options
-   */
-  private static applyPatches(
-    content: string,
-    patches: any[],
-    options: DiffApplierV2Options
-  ): [string, boolean[]] {
-    if (options.fuzzy && options.fuzzy > 0) {
-      // Use fuzzy matching
-      const threshold = options.fuzzy / 100;
-      this.dmp.Match_Threshold = 1 - threshold; // Invert for diff-match-patch
-      return this.dmp.patch_apply(patches, content);
     } else {
-      // Use exact matching
-      this.dmp.Match_Threshold = 0;
-      return this.dmp.patch_apply(patches, content);
+      // Exact matching
+      canApply = this.exactMatch(expectedLines, actualLines, options);
+    }
+
+    if (canApply) {
+      // Apply the hunk
+      lines.splice(currentLine, expectedLines.length, ...newLines);
+      
+      return {
+        applied: true,
+        linesRemoved,
+        linesAdded
+      };
+    } else {
+      return {
+        applied: false,
+        linesRemoved: 0,
+        linesAdded: 0,
+        reason: 'Context mismatch',
+        expectedContext: expectedLines,
+        actualContext: actualLines,
+        suggestion: options.fuzzy 
+          ? 'Try increasing fuzzy threshold or check file version'
+          : 'Enable fuzzy matching with --fuzzy option'
+      };
     }
   }
-
-
 
   /**
-   * Helper methods for result conversion
+   * Check if lines match exactly (with optional whitespace/case ignore)
    */
-  private static getStartLine(patch: any): number {
-    if (!patch || typeof patch.start1 === 'undefined') return 1;
-    return patch.start1 + 1; // Convert to 1-based
-  }
+  private static exactMatch(
+    expectedLines: string[],
+    actualLines: string[],
+    options: DiffApplierV2Options
+  ): boolean {
+    if (expectedLines.length !== actualLines.length) {
+      return false;
+    }
 
-  private static getLinesRemoved(patch: any): number {
-    if (!patch || !patch.diffs) return 0;
-    return patch.diffs
-      .filter(([op]: any) => op === -1) // DIFF_DELETE = -1
-      .reduce((sum: number, [, text]: any) => sum + (text.match(/\n/g) || []).length, 0);
-  }
+    for (let i = 0; i < expectedLines.length; i++) {
+      let expected = expectedLines[i];
+      let actual = actualLines[i];
 
-  private static getLinesAdded(patch: any): number {
-    if (!patch || !patch.diffs) return 0;
-    return patch.diffs
-      .filter(([op]: any) => op === 1) // DIFF_INSERT = 1
-      .reduce((sum: number, [, text]: any) => sum + (text.match(/\n/g) || []).length, 0);
-  }
+      if (options.ignoreWhitespace) {
+        // Normalize all whitespace sequences to single spaces
+        expected = expected.trim().replace(/\s+/g, ' ');
+        actual = actual.trim().replace(/\s+/g, ' ');
+      }
 
-  private static getExpectedContext(patch: any): string[] {
-    if (!patch.diffs) return [];
-    
-    const context: string[] = [];
-    for (const diff of patch.diffs) {
-      if (!diff || diff.length < 2) continue;
-      const [op, text] = diff;
-      if (op === 0 || op === -1) { // DIFF_EQUAL = 0, DIFF_DELETE = -1
-        const lines = text.split('\n');
-        // Remove empty last line if text doesn't end with newline
-        if (!text.endsWith('\n') && lines[lines.length - 1] === '') {
-          lines.pop();
-        }
-        context.push(...lines);
+      if (options.ignoreCase) {
+        expected = expected.toLowerCase();
+        actual = actual.toLowerCase();
+      }
+
+      if (expected !== actual) {
+        return false;
       }
     }
-    return context;
+
+    return true;
   }
 
-  private static getActualContext(
-    content: string,
-    patch: any
-  ): string[] {
-    const lines = content.split('\n');
-    const startLine = patch.start1 || 0;
-    const contextSize = 3; // Lines of context to show
-    
-    const actualLines: string[] = [];
-    for (let i = Math.max(0, startLine - contextSize); 
-         i < Math.min(lines.length, startLine + contextSize); 
-         i++) {
-      actualLines.push(lines[i]);
-    }
-    
-    return actualLines;
-  }
-
-  private static wasFuzzyMatch(
-    patch: any,
-    content: string
+  /**
+   * Check if lines match with fuzzy matching
+   */
+  private static fuzzyMatch(
+    expectedLines: string[],
+    actualLines: string[],
+    options: DiffApplierV2Options
   ): boolean {
-    // Check if the patch was applied with modifications
-    const exactMatch = this.dmp.patch_apply([patch], content);
-    return !exactMatch[1][0]; // If exact match failed, it was fuzzy
+    if (expectedLines.length !== actualLines.length) {
+      return false;
+    }
+
+    const threshold = (options.fuzzy || 80) / 100;
+
+    for (let i = 0; i < expectedLines.length; i++) {
+      const similarity = this.calculateSimilarity(expectedLines[i], actualLines[i], options);
+      if (similarity < threshold) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  /**
+   * Calculate similarity between two strings
+   */
+  private static calculateSimilarity(
+    str1: string,
+    str2: string,
+    options: DiffApplierV2Options
+  ): number {
+    if (options.ignoreWhitespace) {
+      // Normalize all whitespace sequences to single spaces
+      str1 = str1.trim().replace(/\s+/g, ' ');
+      str2 = str2.trim().replace(/\s+/g, ' ');
+    }
+
+    if (options.ignoreCase) {
+      str1 = str1.toLowerCase();
+      str2 = str2.toLowerCase();
+    }
+
+    if (str1 === str2) {
+      return 1.0;
+    }
+
+    // Use diff-match-patch to calculate similarity
+    const diffs = this.dmp.diff_main(str1, str2);
+    const totalLength = Math.max(str1.length, str2.length);
+    
+    if (totalLength === 0) {
+      return 1.0;
+    }
+
+    let matchingChars = 0;
+    for (const [op, text] of diffs) {
+      if (op === 0) { // DIFF_EQUAL
+        matchingChars += text.length;
+      }
+    }
+
+    return matchingChars / totalLength;
   }
 
   /**
@@ -347,9 +384,7 @@ export class DiffApplierV2 {
           const expected = rejected.expectedContext[i];
           const actual = rejected.actualContext[i] || '';
           
-          // Use diff-match-patch to calculate similarity
-          const diffs = this.dmp.diff_main(expected, actual);
-          const similarity = this.calculateSimilarityFromDiffs(diffs);
+          const similarity = this.calculateSimilarity(expected, actual, options);
           
           if (expected !== actual) {
             detailedErrors.push({
@@ -370,25 +405,6 @@ export class DiffApplierV2 {
       result: result.result,
       detailedErrors
     };
-  }
-
-  /**
-   * Calculate similarity from diff-match-patch diffs
-   */
-  private static calculateSimilarityFromDiffs(
-    diffs: Array<[number, string]>
-  ): number {
-    let equalChars = 0;
-    let totalChars = 0;
-
-    for (const [op, text] of diffs) {
-      if (op === 0) { // DIFF_EQUAL = 0
-        equalChars += text.length;
-      }
-      totalChars += text.length;
-    }
-
-    return totalChars > 0 ? equalChars / totalChars : 0;
   }
 
   /**
@@ -432,12 +448,72 @@ export class DiffApplierV2 {
   ): string {
     const contextLines = options.contextLines || 3;
     
-    // Use diff-match-patch to find differences
-    const diffs = this.dmp.diff_main(originalContent, modifiedContent);
-    this.dmp.diff_cleanupSemantic(diffs);
+    // Split content into lines for line-based diff
+    const originalLines = originalContent.split('\n');
+    const modifiedLines = modifiedContent.split('\n');
+    
+    // Use diff-match-patch in line mode
+    const lineArray1 = originalLines.map(line => line + '\n');
+    const lineArray2 = modifiedLines.map(line => line + '\n');
+    
+    // Convert lines to characters for diff-match-patch
+    const [chars1, chars2, lineArray] = this.diff_linesToChars(lineArray1, lineArray2);
+    
+    // Compute diff
+    const diffs = this.dmp.diff_main(chars1, chars2, false);
+    
+    // Convert back to lines
+    this.diff_charsToLines(diffs, lineArray);
     
     // Convert to unified diff format
     return this.diffsToUnified(diffs, 'file.cs', 'file.cs', contextLines);
+  }
+  
+  /**
+   * Convert lines to characters for diff-match-patch
+   */
+  private static diff_linesToChars(
+    lines1: string[],
+    lines2: string[]
+  ): [string, string, string[]] {
+    const lineArray: string[] = [];
+    const lineHash: { [key: string]: number } = {};
+    
+    const linesToChars = (lines: string[]): string => {
+      let chars = '';
+      for (const line of lines) {
+        if (lineHash.hasOwnProperty(line)) {
+          chars += String.fromCharCode(lineHash[line]);
+        } else {
+          lineArray.push(line);
+          lineHash[line] = lineArray.length - 1;
+          chars += String.fromCharCode(lineArray.length - 1);
+        }
+      }
+      return chars;
+    };
+    
+    const chars1 = linesToChars(lines1);
+    const chars2 = linesToChars(lines2);
+    return [chars1, chars2, lineArray];
+  }
+  
+  /**
+   * Convert character codes back to lines
+   */
+  private static diff_charsToLines(
+    diffs: Array<[number, string]>,
+    lineArray: string[]
+  ): void {
+    for (let i = 0; i < diffs.length; i++) {
+      const diff = diffs[i];
+      const chars = diff[1];
+      const lines: string[] = [];
+      for (let j = 0; j < chars.length; j++) {
+        lines.push(lineArray[chars.charCodeAt(j)]);
+      }
+      diff[1] = lines.join('');
+    }
   }
 
   /**
@@ -459,9 +535,10 @@ export class DiffApplierV2 {
     let hunkNewCount = 0;
 
     for (const [op, text] of diffs) {
+      // Split into lines, but preserve the structure
       const lines = text.split('\n');
-      // Remove last empty line if text doesn't end with newline
-      if (!text.endsWith('\n') && lines[lines.length - 1] === '') {
+      // If text ends with newline, we'll have an extra empty string - remove it
+      if (text.endsWith('\n') && lines[lines.length - 1] === '') {
         lines.pop();
       }
       

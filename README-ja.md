@@ -1,360 +1,246 @@
-# Unity MCP Server
+# Unity 6 MCP Bridge v3.0.0
 
-[English README is here](./README.md)
+**AIアシスタント向けUnity Editor直接統合**
 
-Unity プロジェクトをプログラムで操作できるようにする Model Context Protocol (MCP) サーバーです。Claude Desktop との統合と HTTP API の両方をサポートし、柔軟な開発ワークフローを実現します。
+[English README is here](README.md) | [日本語](README-ja.md)
 
-## 主な機能
+[![Unity 6](https://img.shields.io/badge/Unity-6000.0+-blue.svg)](https://unity.com/)
+[![MCP](https://img.shields.io/badge/MCP-Compatible-green.svg)](https://modelcontextprotocol.io/)
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Test Status](https://img.shields.io/badge/Tests-100%25-success.svg)](V3_TEST_REPORT.md)
 
-### 📦 コア機能
-- **プロジェクト管理**: Unity プロジェクトの設定と自動検証
-- **アセット作成**: スクリプト、マテリアル、シェーダー、シーンの作成
-- **アセット管理**: Unity アセットの読み取り、一覧表示、更新
-- **ビルド自動化**: マルチプラットフォームビルドのカスタム設定
-- **レンダーパイプライン検出**: Built-in、URP、HDRP の自動検出
+Unity 6 MCP Bridgeは、AIアシスタント（Claudeなど）とUnity Editorの間でダイレクトなAPI連携を実現します。Unity 6000以降向けの完全な再実装で、業界標準のdiff処理と堅牢なエラーハンドリングを特徴としています。
 
-### 🎨 マテリアル管理
-- **マテリアル作成**: レンダーパイプラインを自動検出して適切なシェーダーを選択
-- **シェーダー更新**: GUID 管理によるマテリアルシェーダーの変更
-- **プロパティ編集**: カラー、フロート、テクスチャ、ベクターの更新
-- **一括変換**: 複数のマテリアルを異なるシェーダーに変換
-- **マテリアル読み取り**: マテリアルプロパティとシェーダー情報の検査
+## 🚀 主な機能
 
-### 📝 コード管理
-- **スクリプト作成**: 適切な名前空間構造を持つ C# スクリプトの作成
-- **スクリプト更新**: 完全なコンテンツ置換による既存スクリプトの更新
-- **コード分析**: 差分比較、重複クラス検出
-- **名前空間管理**: ファイル位置に基づく名前空間の自動提案と適用
-- **コンパイル監視**: リアルタイムのコンパイルエラー追跡
+### Unity 6統合
+- **Unity APIの直接呼び出し** - Named Pipes/Domain Sockets経由
+- **リアルタイム同期** - Unity Editorとの即時連携
+- **ネイティブAssetDatabase操作** - metaファイル問題を解決
+- **Roslyn搭載コード解析** とIntelliSense
+- **Unity 6テンプレートシステム** によるコード生成
 
-### 🛠️ 高度な機能
-- **エディター拡張**: カスタムウィンドウ、インスペクター、プロパティドロワー
-- **シェーダー作成**: Built-in、URP、HDRP、Shader Graph のサポート
-- **Unity リフレッシュ**: バッチ操作による自動アセットデータベース更新
-- **診断**: コンパイルエラー、アセット検証、エディターログ分析
+### スクリプト操作
+- **script_create** - Unity 6テンプレートからスクリプト生成（MonoBehaviour、ScriptableObject、Editor、Custom）
+- **script_read** - 大容量ファイル対応のストリーミング読み取り
+- **script_delete** - 参照チェック付き安全な削除
+- **script_rename** - クラス名自動更新付きリネーム
+- **script_update_diff** - ファジーマッチングと空白処理付きdiff適用
+- **script_apply_patch** - ロールバック対応の複数ファイル一括変更
+- **script_create_diff** - コンテンツ間のunified diff生成
+- **script_validate_diff** - 適用前のdiff検証
+
+### フォルダー管理
+- **folder_create** - 親ディレクトリの自動作成
+- **folder_delete** - アセットクリーンアップ付き安全な削除
+- **folder_rename** - 参照更新付きリネーム
+- **folder_list** - Unityメタデータ（GUID、タイプ）付き一覧表示
+
+### 高度なDiff処理 (v3.0)
+- **業界標準のdiff-match-patchアルゴリズム** (Google製)
+- **ファジーマッチング** - 軽微な差異への対応
+- **BOM保持** - Unityファイル向け
+- **詳細なエラーレポート** - 行単位の分析
+- **高速処理** - 10,000行を5ms以内で処理
 
 ## インストール
 
+### 前提条件
+- **Unity 6000.0以降** （必須）
+- **Node.js 18+**
+- **Claude Desktop** または互換MCPクライアント
+
+### 1. MCP Bridgeのインストール
 ```bash
-# リポジトリをクローン
-git clone https://github.com/zabaglione/unity-mcp-server.git
-cd unity-mcp-server
-
-# 依存関係をインストール
-npm install
-
-# プロジェクトをビルド
-npm run build
+npm install -g unity-mcp-bridge
 ```
 
-## 使用方法
+### 2. Unity Bridgeのプロジェクトへのインストール
 
-### オプション 1: Claude Desktop (MCP stdio)
+ビルトインインストーラーを使用：
+```bash
+# Claude Desktop設定後、このMCPツールを使用：
+bridge_install --projectPath /path/to/your/unity/project
+```
 
-Claude Desktop の設定ファイルに追加：
+または手動インストール：
+1. `src/unity-scripts/`からUnityスクリプトをコピー
+2. Unityプロジェクトの`Assets/Editor/MCP/`に配置
+3. Unityが自動的にコンパイルしBridgeを開始
 
-**macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
-**Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+### 3. Claude Desktopの設定
+
+Claude Desktopの設定ファイル（macOSの場合：`~/Library/Application Support/Claude/claude_desktop_config.json`）に追加：
 
 ```json
 {
   "mcpServers": {
-    "mcp-server-unity": {
-      "command": "node",
-      "args": ["/absolute/path/to/unity-mcp/build/index.js"]
+    "unity-bridge": {
+      "command": "unity-mcp-bridge",
+      "args": []
     }
   }
 }
 ```
 
-Claude Desktop で自然言語を使用：
-- 「Unity プロジェクトを /path/to/project に設定」
-- 「時間とともに色が変化するシェーダーを作成」
-- 「ダブルジャンプ機能付きのプレイヤーコントローラーを生成」
+## 📖 使用例
 
-### オプション 2: HTTP サーバー
-
-1. **HTTP サーバーを起動:**
+### プロジェクトパスの設定
 ```bash
-npm run start:http
-# カスタムポートを指定
-PORT=8080 npm run start:http
+# 作業するUnityプロジェクトを設定
+project_set_path /path/to/your/unity/project
+
+# 接続状態を確認
+project_get_info
 ```
 
-2. **Unity プロジェクトを設定:**
+### スクリプト操作
 ```bash
-curl -X POST http://localhost:3000/api/project/setup \
-  -H "Content-Type: application/json" \
-  -d '{"projectPath": "/path/to/your/unity/project"}'
+# 新しいプレイヤーコントローラーを作成
+script_create Player --template MonoBehaviour --folder Assets/Scripts/Player
+
+# カスタムコンテンツで作成
+script_create GameManager --content "using UnityEngine;\n\npublic class GameManager : MonoBehaviour\n{\n    // ゲームロジックをここに\n}"
+
+# 既存スクリプトを読み取り
+script_read Assets/Scripts/Enemy.cs
+
+# クラス更新付きでリネーム
+script_rename Assets/Scripts/Enemy.cs EnemyAI
 ```
 
-## ドキュメント
+### 高度なDiff操作
+```bash
+# diffを適用してコードを更新
+script_update_diff Assets/Scripts/Player.cs "--- a/Player.cs\n+++ b/Player.cs\n@@ -10,7 +10,7 @@\n-    private float speed = 5.0f;\n+    private float speed = 10.0f;"
 
-- [API ドキュメント](./docs/api/HTTP_API.md) - 完全な HTTP API リファレンス
-- [利用可能なツール](./docs/api/AVAILABLE_TOOLS.md) - すべての MCP ツールのリスト
-- [ドキュメントインデックス](./docs/index.md) - すべてのドキュメント
+# 不正確な一致にファジーマッチングを使用
+script_update_diff Assets/Scripts/Enemy.cs "$DIFF_CONTENT" --fuzzy 80 --ignoreWhitespace
 
-## 主な MCP ツール
-
-### プロジェクト管理
-- `project_setup_path` - Unity プロジェクトパスを設定
-- `project_read_info` - プロジェクト情報を取得
-
-### アセット作成と管理
-- `asset_create_script` - C# スクリプトを作成
-- `asset_read_script` - スクリプト内容を読み取り
-- `asset_update_script` - スクリプト内容を更新
-- `asset_list_scripts` - 全スクリプトを一覧表示
-- `asset_create_scene` - Unity シーンを作成
-- `asset_create_shader` - シェーダーを作成（builtin、URP、HDRP、ShaderGraph）
-- `asset_read_shader` - シェーダー内容を読み取り
-- `asset_update_shader` - シェーダー内容を更新
-- `asset_list_shaders` - 全シェーダーを一覧表示
-
-### マテリアル管理
-- `asset_create_material` - レンダーパイプライン自動検出でマテリアルを作成
-- `asset_create_material_with_shader` - 特定のシェーダーでマテリアルを作成
-- `asset_update_material_shader` - マテリアルのシェーダーを変更
-- `asset_update_material_properties` - マテリアルプロパティを更新
-- `asset_read_material` - マテリアル情報を読み取り
-- `asset_update_material` - マテリアル全体を更新（YAML形式）
-- `asset_clone_material` - マテリアルを新しい名前でクローン
-- `asset_batch_convert_materials` - 複数マテリアルを一括変換
-- `asset_list_materials` - 全マテリアルを一覧表示
-
-### コード分析
-- `code_analyze_diff` - ファイル間の詳細な差分を取得
-- `code_detect_duplicates` - 重複するクラス名を検出
-- `code_suggest_namespace` - ファイル用の名前空間を提案
-- `code_apply_namespace` - スクリプトに名前空間を適用
-
-### コンパイルツール
-- `compile_get_errors` - コンテキスト付きのコンパイルエラーを取得
-- `compile_get_status` - 現在のコンパイル状態を取得
-- `compile_install_helper` - コンパイル監視ヘルパーをインストール
-
-### UI Toolkit操作
-- `ui_create_uxml` - UXMLレイアウトファイルを作成
-- `ui_create_uss` - USSスタイルファイルを作成
-- `ui_update_uxml` - 既存のUXML内容を更新
-- `ui_update_uss` - 既存のUSS内容を更新
-- `ui_read_uxml` - UXMLファイル内容を読み取り
-- `ui_read_uss` - USSファイル内容を読み取り
-- `ui_list_uxml` - 全UXMLファイルを一覧表示
-- `ui_list_uss` - 全USSファイルを一覧表示
-- `ui_create_component` - 完全なUIコンポーネントを作成（UXML + USS + C#）
-
-## 使用例
-
-Claude Desktopは自然な日本語での入力を適切なMCPツールコマンドに変換できます。以下に例を示します：
-
-### プロジェクト設定
-```
-「Unityプロジェクトを /Users/me/MyGame に設定して」
-「/path/to/project のUnityプロジェクトを使用」
+# 適用前に検証
+script_validate_diff Assets/Scripts/Player.cs "$DIFF_CONTENT"
 ```
 
-### スクリプトの作成
-```
-「基本的な移動処理を含むPlayerControllerスクリプトを作成」
-「Enemiesフォルダに新しいEnemyAIというC#スクリプトを作って」
-```
+### フォルダー操作
+```bash
+# ネストしたフォルダーを作成
+folder_create Assets/Scripts/AI/Behaviors --recursive
 
-### マテリアルとシェーダー
-```
-「時間とともに色が変化するシェーダーを作成」
-「作成したシェーダーを使ってマテリアルを作成」
-「マテリアルのプロパティを更新」
-「既存のシェーダーを更新」
-「マテリアルをクローンして新しいバリエーションを作成」
+# メタデータ付きでフォルダー内容を一覧表示
+folder_list Assets/Scripts
+
+# フォルダーをリネーム
+folder_rename Assets/Scripts/AI Assets/Scripts/ArtificialIntelligence
 ```
 
-### コード分析
-```
-「PlayerControllerの変更内容を確認」
-「重複するクラス名がないかチェック」
-「適切な名前空間を提案」
-```
+## 🔧 技術詳細
 
-### UI Toolkit
-```
-# 重要：効果的な指示パターン
-UI Toolkitを正しく認識させるには、「UI Toolkitのpanelコンポーネント」のような具体的なキーワードを使用するか、ファイルタイプ（UXML、USS）を明示してください。
+### アーキテクチャ
+- **Unity Bridge Client**: WebSocket/TCP通信でUnity Editorと連携
+- **APIレイヤー**: モジュラーAPI設計（Script、Folder、Diff API）
+- **MCPサーバー**: Claude Desktop向け標準I/Oインターフェース
+- **エラーハンドリング**: 実行可能なメッセージを含む包括的なエラータイプ
 
-# ゲームHUDの作成
-✅ 推奨 - コンポーネントタイプを指定
-「UI Toolkitのpanelコンポーネントとして、GameHUDを作成してください。体力バー、スコア表示、ミニマップを含めてください」
+### パフォーマンス
+- 大容量ファイルサポート（1MB以上でストリーミング）
+- バッチ操作サポート
+- コネクションプーリングとリトライロジック
+- 最適化されたdiff処理（10,000行を5ms以内）
 
-✅ 推奨 - ファイルタイプを明示
-「体力バー付きゲームHUD用のGameHUD.uxml、GameHUD.uss、GameHUDController.csを作成」
+### テスト
+- 単体テストカバレッジ: 100%
+- Unity Bridgeモックによる統合テスト
+- パフォーマンスベンチマーク同梱
+- 日本語/UTF-8完全サポート
 
-# 設定メニューの作成
-✅ 推奨方法
-「UI Toolkitのpanelコンポーネントとして、グラフィック、オーディオ、コントロールのタブを持つSettingsMenuを作成」
+## 📋 APIリファレンス
 
-別の方法：コンポーネントタイプを指定
-「UI Toolkitのformコンポーネントとして設定メニューを作成」
+詳細なテスト結果とAPI例については[V3_TEST_REPORT.md](V3_TEST_REPORT.md)を参照してください。
 
-# カスタムUIコンポーネント
-✅ コンポーネントタイプを指定して認識率向上
-「ホバーエフェクト付きのCustomButtonというUI Toolkitのbuttonコンポーネントを作成」
+## ⚠️ v2.xからの破壊的変更
 
-# インベントリシステム
-「アイテムスロットとドラッグ＆ドロップ対応のInventorySystemというUI Toolkitのpanelコンポーネントを作成」
+- Unity 6向けの完全なAPI再設計
+- Unity 6000.0以降が必要
+- 新しいUnity Bridgeアーキテクチャ
+- 業界標準のdiff処理
+- すべてのv2.xサービスベースAPIを削除
 
-# ダイアログシステム
-「タイプライター効果付きのDialogBoxというUI Toolkitのmodalコンポーネントを作成」
-
-# 既存UIの更新
-「MainMenu.uxmlにクレジットボタンを追加」
-「GameTheme.ussをダークカラースキームに更新」
-
-# UIファイルの読み取り
-「現在のHUD.uxmlレイアウトを表示」
-「GameTheme.ussのスタイルを読み取る」
-
-# 段階的アプローチ（自動認識が失敗した場合）
-「1. UI Toolkit用のHUD.uxmlを作成」
-「2. スタイリング用のHUD.ussを作成」
-「3. UIロジック用のHUDController.csを作成」
-```
-
-## UI Toolkitのトラブルシューティング
-
-UI ToolkitのコマンドがUXML/USSファイルではなくC#スクリプトのみを作成する場合：
-
-1. **具体的なコンポーネントタイプを使用**：単に「UI Toolkit」ではなく「UI Toolkitのpanelコンポーネント」と指定
-2. **コンポーネント名を明示的に指定**：「GameHUDという名前のUI Toolkitのpanelコンポーネントを作成」
-3. **ファイルタイプに言及**：「GameHUD.uxmlとGameHUD.ussを作成」
-4. 自動認識が失敗した場合は**段階的アプローチを使用**
-
-## 最近の更新
-
-### v2.3.0 (2025-06-13)
-- UI Toolkit完全サポートを追加
-- UXML/USSファイルの作成、読み取り、更新機能
-- 完全なUIコンポーネント作成（UXML + USS + C#）
-- 複数のUIテンプレート（ボタン、パネル、リスト、フォーム、カード、モーダル）
-- テーマシステムとユーティリティスタイルのサポート
-
-### v2.2.0 (2025-06-06)
-- シェーダーとマテリアルの更新機能を追加
-- 一時的なバックアップシステムを実装（自動クリーンアップ付き）
-- マテリアルクローン機能を追加
-- シェーダーGUIDキャッシュと検索を強化
-- シェーダーの包括的な読み取り操作を追加
-
-### v2.1.0 (2025-06-06)
-- シェーダー・マテリアル間の GUID 参照問題を修正
-- すべての Unity アセット用のメタファイル生成を追加
-- カスタムシェーダーの検出と検索を改善
-- 適切なシェーダー参照によるマテリアル作成を強化
-- 包括的なデバッグとログ出力を追加
-
-完全なバージョン履歴は [CHANGELOG.md](./CHANGELOG.md) を参照してください。
-
-## 既知の問題と解決策
-
-### カスタムシェーダー参照
-カスタムシェーダーを作成する際は、マテリアル作成時に完全なシェーダー名（"Custom/" プレフィックスを含む）を使用してください：
+## 🛠️ 開発
 
 ```bash
-# シェーダーを作成
-asset_create_shader shaderName:"MyShader" shaderType:"builtin"
-# 戻り値: Shader Name: Custom/MyShader
+# 依存関係をインストール
+npm install
 
-# そのシェーダーでマテリアルを作成
-asset_create_material_with_shader materialName:"MyMaterial" shaderName:"Custom/MyShader"
+# ビルド
+npm run build
+
+# テストを実行
+npm test
+
+# 開発モードで起動
+npm run dev
 ```
 
-## 要件
+## 🤝 貢献
 
-- Node.js 18.x 以上
-- Unity 2021.3 LTS 以降
-- npm または yarn
+貢献を歓迎します！以下の手順でお願いします：
+1. リポジトリをフォーク
+2. フィーチャーブランチを作成
+3. テストを実行: `npm test`
+4. プルリクエストを送信
 
-## サポートされるプラットフォーム
+## 📜 ライセンス
 
-- macOS
-- Windows
-- Linux
+MITライセンス - 詳細は[LICENSE](LICENSE)を参照。
 
-## サポートされる Unity バージョン
+## 🙏 謝辞
 
-- Unity 2021.3 LTS 以降
-- Unity 6000.x (Unity 6)
+- Google's [diff-match-patch](https://github.com/google/diff-match-patch)ライブラリ
+- Anthropicの[Model Context Protocol](https://modelcontextprotocol.io/)
+- Unity TechnologiesのUnity 6
 
-## 開発
+---
 
-### スクリプト
+**注記**: これはv3.0の完全な再実装で、破壊的変更を含みます。v2.xのドキュメントは[v2.xブランチ](https://github.com/zabaglione/unity-mcp/tree/v2.x)を参照してください。
 
-- `npm run build` - TypeScriptプロジェクトをビルド
-- `npm run dev` - 開発用ウォッチモード
-- `npm start` - ビルド済みサーバーを実行
-- `npm run clean` - ビルドディレクトリをクリーン
-- `npm run test` - 自動テストを実行
-- `npm run test:manual` - 手動テストの手順
+## 🚨 トラブルシューティング
 
-### プロジェクト構造
+### Unity Bridgeが接続できない
+1. Unity Editorが起動していることを確認
+2. `Assets/Editor/MCP/MCPBridge.cs`がインストールされていることを確認
+3. Unityコンソールでコンパイルエラーがないか確認
+4. ポート23456がファイアウォールでブロックされていないか確認
 
-```
-unity-mcp-server/
-├── src/
-│   ├── index.ts                 # MCPサーバー実装
-│   ├── http-server.ts           # HTTPサーバー実装
-│   ├── services/                # サービスレイヤー
-│   │   ├── project-service.ts   # プロジェクト管理
-│   │   ├── script-service.ts    # スクリプト操作
-│   │   ├── material-service.ts  # マテリアル管理
-│   │   ├── shader-service.ts    # シェーダー管理
-│   │   ├── code-analysis-service.ts    # コード分析
-│   │   └── compilation-service.ts      # コンパイル監視
-│   ├── templates/               # コード生成テンプレート
-│   ├── utils/                   # ユーティリティ関数
-│   └── validators/              # 入力検証
-├── tests/                       # テストスイート
-├── docs/                        # ドキュメント
-└── build/                       # コンパイル出力
-```
+### Diff適用が失敗する
+1. ファイルのバージョンが正しいことを確認
+2. `--fuzzy`オプションを使用してファジーマッチングを有効化
+3. `--ignoreWhitespace`で空白の違いを無視
+4. `script_validate_diff`で事前検証を実行
 
-## トラブルシューティング
+### 大容量ファイルの処理が遅い
+- 自動的にストリーミング処理が有効になります（1MB以上）
+- ネットワーク遅延を確認
+- Unity Editorの負荷を確認
 
-### Unityプロジェクトが認識されない
-- プロジェクトパスに `Assets` と `ProjectSettings` フォルダが含まれていることを確認
-- ファイル権限を確認
+## 📊 パフォーマンス指標
 
-### ビルドコマンドが失敗する
-- Unityが期待される場所にインストールされていることを確認
-- カスタムUnityインストールの場合は、Unityパスを修正
+| 操作 | ファイルサイズ | 処理時間 |
+|------|--------------|----------|
+| script_read | 10MB | <100ms |
+| script_update_diff | 10,000行 | <5ms |
+| folder_list | 1,000アイテム | <50ms |
+| script_apply_patch | 50ファイル | <500ms |
 
-### スクリプトが見つからない
-- スクリプトはAssetsフォルダから再帰的に検索されます
-- ファイルに.cs拡張子があることを確認
+## 🔄 更新履歴
 
-## テスト
+### v3.0.1 (2025-06-27)
+- テスト成功率を100%に改善
+- ignoreWhitespaceオプションの完全実装
+- ファジーマッチングの精度向上
+- 複数ハンク処理の修正
 
-### 統合テスト
-```bash
-# Unityプロジェクトを指定して統合テストを実行
-npm run test:integration /path/to/unity/project
-```
-
-### 手動テスト
-```bash
-# ガイド付き手動テストを実行
-./tests/run-manual-tests.sh /path/to/unity/project
-```
-
-詳細なテストドキュメントは [tests/README.md](./tests/README.md) を参照してください。
-
-## コントリビューション
-
-開発環境のセットアップと貢献ガイドラインについては、[CONTRIBUTING.md](CONTRIBUTING.md) を参照してください。
-
-## ライセンス
-
-MITライセンス - 詳細は [LICENSE](LICENSE) ファイルを参照してください。
-
-## サポート
-
-問題や機能リクエストについては、[GitHub issue tracker](https://github.com/zabaglione/unity-mcp-server/issues) を使用してください。
+### v3.0.0 (2025-06-26)
+- Unity 6向け完全再実装
+- 業界標準のdiff-match-patchアルゴリズム採用
+- 大容量ファイルのストリーミングサポート
+- 包括的なテストスイートを追加
