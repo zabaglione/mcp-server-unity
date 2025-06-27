@@ -30,3 +30,14 @@ Desktop.ini
 
 # fot AI
 .github/
+
+# Extension build artifacts
+extension-package/
+*.dxt
+
+# Test output directories
+test-*-output/
+
+# Legacy scripts
+install-*.js
+reinstall-*.js
