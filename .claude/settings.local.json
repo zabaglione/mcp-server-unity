@@ -51,7 +51,8 @@
       "Bash(sed:*)",
       "WebFetch(domain:docs.unity3d.com)",
       "Bash(./build/unity6-mcp-server.js)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(git merge:*)"
     ],
     "deny": []
   }
