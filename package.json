@@ -21,7 +21,9 @@
     "test:watch": "NODE_OPTIONS=--experimental-vm-modules jest --watch",
     "test:manual": "./tests/run-manual-tests.sh",
     "test:legacy": "npm run build && node tests/integration-test.js",
-    "test:direct": "npm run build && NODE_OPTIONS='--loader ts-node/esm' ts-node --project tsconfig.test.json tests/unit-tests.ts"
+    "test:direct": "npm run build && NODE_OPTIONS='--loader ts-node/esm' ts-node --project tsconfig.test.json tests/unit-tests.ts",
+    "extension:build": "./scripts/build-extension.sh",
+    "extension:clean": "rm -rf extension-package unity-mcp-bridge.dxt"
   },
   "keywords": [
     "mcp",

@@ -52,6 +52,13 @@
       "WebFetch(domain:docs.unity3d.com)",
       "Bash(./build/unity6-mcp-server.js)",
       "Bash(cat:*)",
+      "Bash(timeout:*)",
+      "Bash(git checkout:*)",
+      "WebFetch(domain:www.anthropic.com)",
+      "Bash(convert:*)",
+      "Bash(magick:*)",
+      "Bash(npm run extension:build:*)",
+      "Bash(npm run extension:clean:*)",
       "Bash(git merge:*)"
     ],
     "deny": []

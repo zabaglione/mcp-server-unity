@@ -50,12 +50,23 @@ Unity 6 MCP Bridgeは、AIアシスタント（Claudeなど）とUnity Editorの
 - **Node.js 18+**
 - **Claude Desktop** または互換MCPクライアント
 
-### 1. MCP Bridgeのインストール
+### Desktop Extensionで簡単インストール (NEW! 🎉)
+
+Unity MCP Bridgeを最も簡単にインストールする方法はDesktop Extensionを使用することです：
+
+1. **ダウンロード**: [Releases](https://github.com/zabaglione/unity-mcp/releases)から`unity-mcp-bridge.dxt`を取得
+2. **インストール**: Claude Desktopで、Extensions → Install from file → .dxtファイルを選択
+3. **設定**: 拡張機能の設定でUnityプロジェクトのパスを設定
+4. **完了！** 初回使用時にUnity Bridgeがプロジェクトに自動インストールされます
+
+### 手動インストール
+
+#### 1. MCP Bridgeのインストール
 ```bash
 npm install -g unity-mcp-bridge
 ```
 
-### 2. Unity Bridgeのプロジェクトへのインストール
+#### 2. Unity Bridgeのプロジェクトへのインストール
 
 ビルトインインストーラーを使用：
 ```bash
@@ -68,7 +79,7 @@ bridge_install --projectPath /path/to/your/unity/project
 2. Unityプロジェクトの`Assets/Editor/MCP/`に配置
 3. Unityが自動的にコンパイルしBridgeを開始
 
-### 3. Claude Desktopの設定
+#### 3. Claude Desktopの設定
 
 Claude Desktopの設定ファイル（macOSの場合：`~/Library/Application Support/Claude/claude_desktop_config.json`）に追加：
 
@@ -180,6 +191,23 @@ npm test
 # 開発モードで起動
 npm run dev
 ```
+
+### Desktop Extensionのビルド
+
+Desktop Extensionパッケージ（.dxt）を作成するには：
+
+```bash
+# 拡張パッケージをビルド
+npm run extension:build
+
+# これにより配布可能なunity-mcp-bridge.dxtが作成されます
+```
+
+拡張パッケージには以下が含まれます：
+- ビルド済みサーバーファイル
+- バンドルされたすべての依存関係
+- アイコンとメタデータ
+- 自動設定サポート
 
 ## 🤝 貢献
 

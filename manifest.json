@@ -1,0 +1,64 @@
+{
+  "name": "unity-mcp-bridge",
+  "version": "3.0.0",
+  "description": "Direct Unity Editor integration for AI-powered game development. Connect Claude with Unity 6 for seamless script creation, modification, and project management.",
+  "author": "zabaglione",
+  "license": "MIT",
+  "homepage": "https://github.com/zabaglione/unity-mcp",
+  "extension_version": "0.1.0",
+  "mcp_version": "^1.0.0",
+  "icon": "icon.png",
+  "categories": ["game-development", "unity", "scripting"],
+  "keywords": ["unity", "unity6", "game-development", "mcp", "ai-assistant"],
+  "server": {
+    "type": "node",
+    "entry_point": "server/build/unity6-mcp-server.js",
+    "args": [],
+    "env": {
+      "NODE_ENV": "production"
+    }
+  },
+  "runtime": {
+    "node": ">=18.0.0"
+  },
+  "config": [
+    {
+      "name": "projectPath",
+      "type": "string",
+      "description": "Path to your Unity project directory",
+      "required": false,
+      "default": ""
+    },
+    {
+      "name": "autoConnect",
+      "type": "boolean",
+      "description": "Automatically connect to Unity Editor when available",
+      "required": false,
+      "default": true
+    },
+    {
+      "name": "logLevel",
+      "type": "string",
+      "description": "Logging level (error, warn, info, debug)",
+      "required": false,
+      "default": "info",
+      "enum": ["error", "warn", "info", "debug"]
+    }
+  ],
+  "permissions": {
+    "file_system": {
+      "read": true,
+      "write": true,
+      "description": "Required for Unity project file operations"
+    },
+    "network": {
+      "localhost": true,
+      "description": "Required for Unity Bridge WebSocket/TCP communication"
+    }
+  },
+  "dependencies": [
+    "@modelcontextprotocol/sdk",
+    "diff-match-patch",
+    "ws"
+  ]
+}
