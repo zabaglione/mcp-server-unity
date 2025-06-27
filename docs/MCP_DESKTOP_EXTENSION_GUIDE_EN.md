@@ -2,16 +2,13 @@
 
 ## Key Discovery
 
-### Root Cause of Issues
-Claude Desktop attempts to read directories within .dxt packages as "files", resulting in errors like:
-```
-ENOENT: no such file or directory, open '.../build/'
-ENOENT: no such file or directory, open '.../node_modules/'
-ENOENT: no such file or directory, open '.../dependencies/'
-```
+### Root Causes of Issues
+1. **Directory Structure Issue**: Claude Desktop attempts to read directories as "files", causing ENOENT errors
+2. **Shebang Issue**: `#!/usr/bin/env node` causes SyntaxError when present
+3. **Module Format Issue**: Using ESM (import/export) causes `Cannot use import statement outside a module` error
 
-### Solution: Completely Flat Structure
-**Bundle all code and dependencies into a single JavaScript file**
+### Solution: Single File + CommonJS Format
+**Bundle all code and dependencies into a single CommonJS format JavaScript file**
 
 ## Essential Requirements
 
@@ -53,18 +50,18 @@ npm install --save-dev esbuild
 # Compile TypeScript
 npm run build
 
-# Bundle into single file with esbuild
-npx esbuild build/your-server.js \
+# Bundle into single file with esbuild (Important: CommonJS format)
+npx esbuild build/index.js \
   --bundle \
   --platform=node \
   --target=node18 \
   --outfile=extension-package/bundled-server.js \
   --external:fsevents \  # Exclude platform-specific modules
-  --format=esm \
-  --banner:js="#!/usr/bin/env node"
+  --format=cjs \         # CommonJS format (Important!)
 
-# Make executable
-chmod +x extension-package/bundled-server.js
+# Remove shebang (Important!)
+# esbuild might automatically add it
+sed -i '' '1s/^#!/\/\/ Removed shebang: #!/' extension-package/bundled-server.js
 
 # Copy and update manifest.json
 cp manifest.json extension-package/
@@ -129,20 +126,28 @@ extension.dxt
 
 ## Important esbuild Settings
 
+### Required Settings
+```bash
+--format=cjs      # CommonJS format (ESM causes errors)
+--platform=node   # Node.js environment
+--target=node18   # Claude Desktop's Node.js version
+```
+
 ### Exclude Platform-Specific Modules
 ```bash
 --external:fsevents  # macOS specific
 --external:@parcel/watcher  # Optional dependencies
 ```
 
+### Shebang Handling
+```bash
+# Remove shebang that esbuild automatically adds
+sed -i '' '1s/^#!/\/\/ Removed shebang: #!/' bundled-file.js
+```
+
 ### Handling Large File Sizes
 - Works even with large bundled files (>1MB)
-- Unity MCP example: 333KB (after bundling)
-
-### Node.js Version
-```bash
---target=node18  # Match Claude Desktop's Node.js version
-```
+- Unity MCP example: 326KB (after bundling)
 
 ## Testing and Debugging
 
@@ -176,12 +181,38 @@ See complete implementation:
 3. **Accurate manifest.json** - entry_point must point to single file
 4. **Proper exclusions** - exclude platform-specific modules
 
+## Debugging Methods
+
+### Check Installed Files
+```bash
+# For macOS
+cd "/Users/$USER/Library/Application Support/Claude/Claude Extensions/local.dxt.your-extension-name/"
+ls -la
+
+# Test the file directly
+node bundled-server.js
+```
+
+### Check Log Files
+```bash
+# For macOS
+tail -f "/Users/$USER/Library/Logs/Claude/mcp-server-your-extension-name.log"
+```
+
 ## Summary
 
 Key points for creating MCP Desktop Extensions:
-- **No directory structures** - Claude Desktop tries to read directories as files
-- **Bundle everything into single JavaScript file** - esbuild is optimal
-- **Precise manifest.json** - especially entry_point configuration
-- **Test with actual installation** - structural issues only appear during installation
+
+1. **No directory structures** - Claude Desktop tries to read directories as files
+2. **Bundle into single CommonJS file** - Use esbuild with `--format=cjs`
+3. **Remove shebang** - `#!/usr/bin/env node` causes SyntaxError
+4. **Precise manifest.json** - especially entry_point configuration
+5. **Test with actual installation** - structural issues only appear during installation
+
+### Verified Working Environment
+- Claude Desktop (macOS)
+- Node.js v20.15.0
+- Bundled with esbuild
+- CommonJS format
 
 Following this approach ensures your MCP extension works reliably in Claude Desktop.

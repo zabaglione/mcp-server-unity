@@ -3,15 +3,12 @@
 ## 重要な発見事項
 
 ### 問題の根本原因
-Claude Desktop は .dxt パッケージ内のディレクトリを「ファイル」として読み込もうとするため、以下のようなエラーが発生します：
-```
-ENOENT: no such file or directory, open '.../build/'
-ENOENT: no such file or directory, open '.../node_modules/'
-ENOENT: no such file or directory, open '.../dependencies/'
-```
+1. **ディレクトリ構造の問題**: Claude Desktop は .dxt パッケージ内のディレクトリを「ファイル」として読み込もうとするため、ENOENT エラーが発生
+2. **Shebang の問題**: `#!/usr/bin/env node` が含まれていると SyntaxError が発生
+3. **モジュール形式の問題**: ESM (import/export) を使用すると `Cannot use import statement outside a module` エラーが発生
 
-### 解決策：完全にフラットな構造にする
-**すべてのコードと依存関係を単一のJavaScriptファイルにバンドルする**
+### 解決策：単一ファイル + CommonJS 形式
+**すべてのコードと依存関係を単一の CommonJS 形式 JavaScript ファイルにバンドルする**
 
 ## 必須要件
 
@@ -53,18 +50,18 @@ npm install --save-dev esbuild
 # TypeScriptをコンパイル
 npm run build
 
-# esbuildで単一ファイルにバンドル
-npx esbuild build/your-server.js \
+# esbuildで単一ファイルにバンドル（重要：CommonJS形式で出力）
+npx esbuild build/index.js \
   --bundle \
   --platform=node \
   --target=node18 \
   --outfile=extension-package/bundled-server.js \
   --external:fsevents \  # プラットフォーム固有のモジュールは除外
-  --format=esm \
-  --banner:js="#!/usr/bin/env node"
+  --format=cjs \         # CommonJS形式（重要！）
 
-# 実行権限を付与
-chmod +x extension-package/bundled-server.js
+# Shebangを削除（重要！）
+# esbuildが自動的に追加する可能性があるため
+sed -i '' '1s/^#!/\/\/ Removed shebang: #!/' extension-package/bundled-server.js
 
 # manifest.json をコピーしてパスを更新
 cp manifest.json extension-package/
@@ -129,20 +126,28 @@ extension.dxt
 
 ## esbuild の重要な設定
 
+### 必須設定
+```bash
+--format=cjs      # CommonJS形式（ESMではエラーになる）
+--platform=node   # Node.js環境
+--target=node18   # Claude Desktop の Node.js バージョン
+```
+
 ### プラットフォーム固有モジュールの除外
 ```bash
 --external:fsevents  # macOS固有
 --external:@parcel/watcher  # オプショナルな依存関係
 ```
 
+### Shebang の処理
+```bash
+# esbuildが自動的に追加する shebang を削除
+sed -i '' '1s/^#!/\/\/ Removed shebang: #!/' bundled-file.js
+```
+
 ### 大きなファイルサイズへの対処
 - バンドル後のファイルサイズが大きい場合（>1MB）でも動作します
-- Unity MCPの例：333KB（バンドル後）
-
-### Node.js バージョン
-```bash
---target=node18  # Claude Desktop の Node.js バージョンに合わせる
-```
+- Unity MCPの例：326KB（バンドル後）
 
 ## テストとデバッグ
 
@@ -176,12 +181,38 @@ node bundled-server.js
 3. **manifest.json の正確な設定** - entry_point は単一ファイルを指す
 4. **適切な除外設定** - プラットフォーム固有のモジュールは除外
 
+## デバッグ方法
+
+### インストール後のファイル確認
+```bash
+# macOS の場合
+cd "/Users/$USER/Library/Application Support/Claude/Claude Extensions/local.dxt.your-extension-name/"
+ls -la
+
+# ファイルを直接実行してテスト
+node bundled-server.js
+```
+
+### ログファイルの確認
+```bash
+# macOS の場合
+tail -f "/Users/$USER/Library/Logs/Claude/mcp-server-your-extension-name.log"
+```
+
 ## まとめ
 
 MCP Desktop Extension を作成する際の最重要ポイント：
-- **ディレクトリ構造は使用しない** - Claude Desktop はディレクトリをファイルとして読み込もうとする
-- **すべてを単一のJavaScriptファイルにバンドル** - esbuild が最適
-- **manifest.json は正確に** - 特に entry_point の設定
-- **テストは実際のインストールで** - 構造の問題は実際にインストールするまで分からない
+
+1. **ディレクトリ構造は使用しない** - Claude Desktop はディレクトリをファイルとして読み込もうとする
+2. **単一の CommonJS ファイルにバンドル** - esbuild で `--format=cjs` を使用
+3. **Shebang を削除** - `#!/usr/bin/env node` は SyntaxError の原因
+4. **manifest.json は正確に** - 特に entry_point の設定
+5. **テストは実際のインストールで** - 構造の問題は実際にインストールするまで分からない
+
+### 確認済みの動作環境
+- Claude Desktop (macOS)
+- Node.js v20.15.0
+- esbuild でバンドル
+- CommonJS 形式
 
 この方法に従えば、Claude Desktop で確実に動作する MCP 拡張機能を作成できます。

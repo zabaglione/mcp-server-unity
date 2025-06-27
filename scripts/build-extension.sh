@@ -35,10 +35,12 @@ npm run build
 
 # Bundle into a single file using esbuild
 echo -e "${YELLOW}Creating bundled server file...${NC}"
-npx esbuild build/unity6-mcp-server.js --bundle --platform=node --target=node18 --outfile=extension-package/unity6-mcp-server.bundle.js --external:fsevents --format=esm --banner:js="#!/usr/bin/env node"
+npx esbuild build/index.js --bundle --platform=node --target=node18 --outfile=extension-package/unity6-mcp-server.bundle.js --external:fsevents --format=cjs
 
-# Make the bundled file executable
-chmod +x extension-package/unity6-mcp-server.bundle.js
+# Remove shebang that esbuild might have added
+# The shebang causes SyntaxError when Node.js loads the file via 'node' command
+echo -e "${YELLOW}Removing shebang from bundled file...${NC}"
+sed -i '' '1s/^#!/\/\/ Removed shebang: #!/' extension-package/unity6-mcp-server.bundle.js
 
 # Copy manifest and update entry point
 echo -e "${YELLOW}Copying and updating manifest...${NC}"
