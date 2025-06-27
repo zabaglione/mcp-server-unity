@@ -1,21 +1,25 @@
 {
+  "dxt_version": "1.0.0",
   "name": "unity-mcp-bridge",
   "version": "3.0.0",
   "description": "Direct Unity Editor integration for AI-powered game development. Connect Claude with Unity 6 for seamless script creation, modification, and project management.",
-  "author": "zabaglione",
+  "author": {
+    "name": "zabaglione",
+    "email": "noreply@github.com",
+    "url": "https://github.com/zabaglione"
+  },
   "license": "MIT",
   "homepage": "https://github.com/zabaglione/unity-mcp",
-  "extension_version": "0.1.0",
-  "mcp_version": "^1.0.0",
   "icon": "icon.png",
   "categories": ["game-development", "unity", "scripting"],
   "keywords": ["unity", "unity6", "game-development", "mcp", "ai-assistant"],
-  "server": {
-    "type": "node",
-    "entry_point": "server/build/unity6-mcp-server.js",
-    "args": [],
-    "env": {
-      "NODE_ENV": "production"
+  "mcp": {
+    "server": {
+      "command": "node",
+      "args": ["server/build/unity6-mcp-server.js"],
+      "env": {
+        "NODE_ENV": "production"
+      }
     }
   },
   "runtime": {
