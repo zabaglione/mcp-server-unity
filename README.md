@@ -50,12 +50,23 @@ Unity 6 MCP Bridge provides seamless integration between AI assistants (like Cla
 - **Node.js 18+**
 - **Claude Desktop** or compatible MCP client
 
-### 1. Install MCP Bridge
+### Quick Install with Desktop Extension (NEW! 🎉)
+
+The easiest way to install Unity MCP Bridge is using the Desktop Extension:
+
+1. **Download**: Get `unity-mcp-bridge.dxt` from [Releases](https://github.com/zabaglione/unity-mcp/releases)
+2. **Install**: In Claude Desktop, go to Extensions → Install from file → Select the .dxt file
+3. **Configure**: Set your Unity project path in the extension settings
+4. **Done!** Unity Bridge will auto-install in your project when you first use it
+
+### Manual Installation
+
+#### 1. Install MCP Bridge
 ```bash
 npm install -g unity-mcp-bridge
 ```
 
-### 2. Install Unity Bridge in Your Project
+#### 2. Install Unity Bridge in Your Project
 
 Use the built-in installer:
 ```bash
@@ -68,7 +79,7 @@ Or manually:
 2. Place in `Assets/Editor/MCP/` in your Unity project
 3. Unity will automatically compile and start the bridge
 
-### 3. Configure Claude Desktop
+#### 3. Configure Claude Desktop
 
 Add to your Claude Desktop configuration (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
 
@@ -180,6 +191,23 @@ npm test
 # Start in development mode
 npm run dev
 ```
+
+### Building Desktop Extension
+
+To create a Desktop Extension package (.dxt):
+
+```bash
+# Build the extension package
+npm run extension:build
+
+# This creates unity-mcp-bridge.dxt ready for distribution
+```
+
+The extension includes:
+- Pre-built server files
+- All dependencies bundled
+- Icon and metadata
+- Auto-configuration support
 
 ## 🤝 Contributing
 
