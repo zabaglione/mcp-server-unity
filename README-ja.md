@@ -54,7 +54,7 @@ Unity 6 MCP Bridgeは、AIアシスタント（Claudeなど）とUnity Editorの
 
 Unity MCP Bridgeを最も簡単にインストールする方法はDesktop Extensionを使用することです：
 
-1. **ダウンロード**: [Releases](https://github.com/zabaglione/unity-mcp/releases)から`unity-mcp-bridge.dxt`を取得
+1. **ダウンロード**: [Releases](https://github.com/zabaglione/mcp-server-unity/releases/latest)から`unity-mcp-bridge.dxt`を取得
 2. **インストール**: Claude Desktopで、Extensions → Install from file → .dxtファイルを選択
 3. **設定**: 拡張機能の設定でUnityプロジェクトのパスを設定
 4. **完了！** 初回使用時にUnity Bridgeがプロジェクトに自動インストールされます

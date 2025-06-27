@@ -54,7 +54,7 @@ Unity 6 MCP Bridge provides seamless integration between AI assistants (like Cla
 
 The easiest way to install Unity MCP Bridge is using the Desktop Extension:
 
-1. **Download**: Get `unity-mcp-bridge.dxt` from [Releases](https://github.com/zabaglione/unity-mcp/releases)
+1. **Download**: Get `unity-mcp-bridge.dxt` from [Releases](https://github.com/zabaglione/mcp-server-unity/releases/latest)
 2. **Install**: In Claude Desktop, go to Extensions → Install from file → Select the .dxt file
 3. **Configure**: Set your Unity project path in the extension settings
 4. **Done!** Unity Bridge will auto-install in your project when you first use it
