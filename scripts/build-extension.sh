@@ -27,22 +27,24 @@ rm -f unity-mcp-bridge.dxt
 
 # Create package structure
 echo -e "${YELLOW}Creating package structure...${NC}"
-mkdir -p extension-package/{server,dependencies}
+mkdir -p extension-package
 
 # Build the project
 echo -e "\n${YELLOW}Building Unity MCP Bridge...${NC}"
 npm run build
 
-# Copy server files
-echo -e "${YELLOW}Copying server files...${NC}"
-cp -r build extension-package/server/
-cp -r src extension-package/server/
-cp package.json extension-package/server/
-cp package-lock.json extension-package/server/
+# Bundle into a single file using esbuild
+echo -e "${YELLOW}Creating bundled server file...${NC}"
+npx esbuild build/unity6-mcp-server.js --bundle --platform=node --target=node18 --outfile=extension-package/unity6-mcp-server.bundle.js --external:fsevents --format=esm --banner:js="#!/usr/bin/env node"
 
-# Copy manifest
-echo -e "${YELLOW}Copying manifest...${NC}"
+# Make the bundled file executable
+chmod +x extension-package/unity6-mcp-server.bundle.js
+
+# Copy manifest and update entry point
+echo -e "${YELLOW}Copying and updating manifest...${NC}"
 cp manifest.json extension-package/
+sed -i '' 's|"entry_point": "build/unity6-mcp-server.js"|"entry_point": "unity6-mcp-server.bundle.js"|g' extension-package/manifest.json
+sed -i '' 's|"args": \["\${__dirname}/build/unity6-mcp-server.js"\]|"args": \["\${__dirname}/unity6-mcp-server.bundle.js"\]|g' extension-package/manifest.json
 
 # Copy icon if exists
 if [ -f "icon.png" ]; then
@@ -51,41 +53,6 @@ if [ -f "icon.png" ]; then
 else
     echo -e "${YELLOW}Warning: icon.png not found. Extension will have no icon.${NC}"
 fi
-
-# Install production dependencies
-echo -e "\n${YELLOW}Installing production dependencies...${NC}"
-cd extension-package/server
-npm ci --production
-cd ../..
-
-# Create minimal package.json for the extension
-echo -e "${YELLOW}Creating minimal package.json...${NC}"
-cat > extension-package/server/package.json << 'EOF'
-{
-  "name": "unity-mcp-bridge-server",
-  "version": "3.0.0",
-  "type": "module",
-  "main": "build/unity6-mcp-server.js",
-  "engines": {
-    "node": ">=18.0.0"
-  }
-}
-EOF
-
-# Copy dependencies info
-echo -e "${YELLOW}Creating dependencies info...${NC}"
-cat > extension-package/dependencies/README.md << 'EOF'
-# Dependencies
-
-All required dependencies are bundled in the server/node_modules directory.
-
-Core dependencies:
-- @modelcontextprotocol/sdk: MCP protocol implementation
-- diff-match-patch: Google's diff algorithm for code updates
-- ws: WebSocket client for Unity Bridge communication
-
-No additional installation required.
-EOF
 
 # Create the .dxt package (ZIP archive)
 echo -e "\n${YELLOW}Creating .dxt package...${NC}"

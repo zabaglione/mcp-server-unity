@@ -68,6 +68,7 @@
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^20.0.0",
     "@types/ws": "^8.5.10",
+    "esbuild": "^0.25.5",
     "jest": "^30.0.0",
     "node-fetch": "^3.3.2",
     "ts-jest": "^29.4.0",

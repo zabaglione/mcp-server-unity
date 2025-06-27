@@ -13,10 +13,12 @@
   "icon": "icon.png",
   "categories": ["game-development", "unity", "scripting"],
   "keywords": ["unity", "unity6", "game-development", "mcp", "ai-assistant"],
-  "mcp": {
-    "server": {
+  "server": {
+    "type": "node",
+    "entry_point": "build/unity6-mcp-server.js",
+    "mcp_config": {
       "command": "node",
-      "args": ["server/build/unity6-mcp-server.js"],
+      "args": ["${__dirname}/build/unity6-mcp-server.js"],
       "env": {
         "NODE_ENV": "production"
       }
@@ -60,9 +62,74 @@
       "description": "Required for Unity Bridge WebSocket/TCP communication"
     }
   },
-  "dependencies": [
-    "@modelcontextprotocol/sdk",
-    "diff-match-patch",
-    "ws"
+  "tools": [
+    {
+      "name": "project_set_path",
+      "description": "Set the Unity project path for direct integration"
+    },
+    {
+      "name": "project_get_info",
+      "description": "Get Unity project information and connection status"
+    },
+    {
+      "name": "bridge_install",
+      "description": "Install MCPBridge.cs to Unity project for direct API integration"
+    },
+    {
+      "name": "bridge_uninstall",
+      "description": "Remove MCPBridge.cs from Unity project"
+    },
+    {
+      "name": "bridge_status",
+      "description": "Check if MCPBridge.cs is installed and running in Unity project"
+    },
+    {
+      "name": "script_create",
+      "description": "Create a new C# script using Unity 6 API with template support"
+    },
+    {
+      "name": "script_read",
+      "description": "Read script content from Unity project"
+    },
+    {
+      "name": "script_delete",
+      "description": "Delete script using Unity 6 AssetDatabase"
+    },
+    {
+      "name": "script_rename",
+      "description": "Rename script using Unity 6 AssetDatabase"
+    },
+    {
+      "name": "script_update_diff",
+      "description": "Apply diff to a single file with advanced options"
+    },
+    {
+      "name": "script_apply_patch",
+      "description": "Apply patch to multiple files with transaction support"
+    },
+    {
+      "name": "script_create_diff",
+      "description": "Create diff between two contents or files"
+    },
+    {
+      "name": "script_validate_diff",
+      "description": "Validate diff before applying"
+    },
+    {
+      "name": "folder_create",
+      "description": "Create folder using Unity 6 AssetDatabase"
+    },
+    {
+      "name": "folder_delete",
+      "description": "Delete folder using Unity 6 AssetDatabase"
+    },
+    {
+      "name": "folder_rename",
+      "description": "Rename folder using Unity 6 AssetDatabase"
+    },
+    {
+      "name": "folder_list",
+      "description": "List folder contents with Unity metadata"
+    }
   ]
 }

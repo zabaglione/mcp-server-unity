@@ -60,7 +60,10 @@
       "Bash(npm run extension:build:*)",
       "Bash(npm run extension:clean:*)",
       "Bash(git merge:*)",
-      "Bash(gh release upload:*)"
+      "Bash(gh release upload:*)",
+      "WebFetch(domain:github.com)",
+      "Bash(./scripts/build-extension.sh:*)",
+      "Bash(gh release:*)"
     ],
     "deny": []
   }
