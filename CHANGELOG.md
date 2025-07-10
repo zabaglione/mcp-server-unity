@@ -23,8 +23,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `shader_create` - Create new shaders with default template
   - `shader_read` - Read shader contents
   - `shader_delete` - Delete shaders
+- **DXT Package Build System**:
+  - `npm run build:dxt` - One-command DXT package creation
+  - Embedded Unity C# scripts for elimination of file dependencies
+  - Unified build system with TypeScript compilation and bundling
 
 ### Changed
+- **DXT Package Optimization**: Reduced package size from 24MB to 41KB through embedded scripts
+- **Package Name**: Changed final DXT filename from `unity-mcp-server-bundled.dxt` to `unity-mcp-server.dxt`
+- **Build System**: Complete overhaul with automated bundling and packaging scripts
+- **Script Deployment**: Unity C# scripts now embedded directly in TypeScript bundle
 - Updated port from 3001 to 23457 for better conflict avoidance
 - Improved UTF-8 BOM handling for Unity compatibility
 - Simplified HTTP-based architecture for better reliability
@@ -32,14 +40,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Scripts now install to `Assets/Editor/MCP/` folder structure
 
 ### Fixed
+- **UTF-8 BOM Encoding**: Fixed BOM generation using proper byte array `[0xEF, 0xBB, 0xBF]`
+- **Module Resolution**: Eliminated all external file dependencies in DXT package
+- **Process Lifecycle**: Added `process.stdin.resume()` to prevent early server shutdown
 - Character encoding issues with UTF-8 BOM for Unity files
 - Script deployment path handling for various Unity project structures
 - Connection stability with retry logic
+
+### Removed
+- Obsolete shader template files (builtin-shader.ts, hdrp-shader.ts, urp-shader.ts, index.ts)
+- External file dependencies in DXT package
 
 ### Documentation
 - Updated README files with correct repository name (mcp-server-unity)
 - Added comprehensive usage examples for all operations
 - Improved setup instructions with automatic and manual options
+- Added BUILD.md with complete build system documentation
 
 ## [3.0.0] - 2025-06-08
 
