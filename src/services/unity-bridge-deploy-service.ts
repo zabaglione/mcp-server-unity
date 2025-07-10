@@ -69,13 +69,16 @@ export class UnityBridgeDeployService {
     const needsUpdate = await this.checkNeedsUpdate(targetPath, script.version, forceUpdate);
     
     if (needsUpdate) {
-      // Get script from embedded provider
-      const embeddedScript = this.scriptsProvider.getScript(script.fileName);
+      // Get script from embedded provider (now async)
+      const embeddedScript = await this.scriptsProvider.getScript(script.fileName);
       if (!embeddedScript) {
         throw new Error(`Embedded script not found: ${script.fileName}`);
       }
       
-      this.logger.debug(`Using embedded script: ${script.fileName}`);
+      this.logger.debug(`Using embedded script: ${script.fileName} (loaded from source)`);
+      
+      // Remove existing files if they exist (including .meta files)
+      await this.removeExistingFiles(targetPath);
       
       // Write script using the embedded provider's method (handles UTF-8 BOM)
       await this.scriptsProvider.writeScriptToFile(script.fileName, targetPath);
@@ -153,6 +156,29 @@ MonoImporter:
 `;
     
     await fs.writeFile(metaPath, metaContent, 'utf8');
+  }
+
+  private async removeExistingFiles(targetPath: string): Promise<void> {
+    try {
+      // Remove the script file if it exists
+      await fs.unlink(targetPath);
+      this.logger.debug(`Removed existing file: ${targetPath}`);
+    } catch (error: any) {
+      if (error.code !== 'ENOENT') {
+        this.logger.debug(`Failed to remove file ${targetPath}: ${error.message}`);
+      }
+    }
+
+    try {
+      // Remove the .meta file if it exists
+      const metaPath = targetPath + '.meta';
+      await fs.unlink(metaPath);
+      this.logger.debug(`Removed existing meta file: ${metaPath}`);
+    } catch (error: any) {
+      if (error.code !== 'ENOENT') {
+        this.logger.debug(`Failed to remove meta file ${targetPath}.meta: ${error.message}`);
+      }
+    }
   }
 
   private generateGUID(): string {

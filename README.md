@@ -283,6 +283,18 @@ Contributions are welcome! Please ensure:
 - [Architecture Overview](docs/ARCHITECTURE.md)
 - [API Reference](docs/API.md)
 
+## 📈 Recent Updates (v3.1.1)
+
+### Fixed Issues
+- ✅ **Render Pipeline Detection**: Fixed "Unknown" render pipeline - now correctly detects Built-in, URP, and HDRP
+- ✅ **AssetDatabase Errors**: Eliminated "[Worker0] Import Error Code:(4)" synchronization issues
+- ✅ **File Management**: Enhanced script deployment with proper cleanup of existing files and .meta files
+
+### Improvements
+- 🔄 **Dynamic Script Generation**: Unity C# scripts now generated from source files at build time
+- 🎯 **Better Threading**: project/info requests now run on main thread for proper Unity API access
+- 🛠️ **Enhanced Debugging**: Improved logging for render pipeline detection troubleshooting
+
 ## 🔮 Future Enhancements
 
 - WebSocket support for real-time communication

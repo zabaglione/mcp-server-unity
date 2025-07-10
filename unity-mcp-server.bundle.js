@@ -5707,11 +5707,11 @@ namespace UnityMCP
             switch (method)
             {
                 case "ping":
-                case "project/info":
                 case "script/read":
                 case "shader/read":
                     return false;
                     
+                // project/info now requires Unity API for render pipeline detection
                 // Creating, deleting files require Unity API (AssetDatabase)
                 default:
                     return true;
@@ -5726,17 +5726,8 @@ namespace UnityMCP
                     return new { status = "ok", time = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") };
                     
                 case "project/info":
-                    // Basic project info that doesn't require Unity API
-                    var dataPath = Application.dataPath;
-                    var projectPath = dataPath.Substring(0, dataPath.Length - ASSETS_PREFIX_LENGTH); // Remove "/Assets"
-                    return new
-                    {
-                        projectPath = projectPath,
-                        projectName = Path.GetFileName(projectPath),
-                        unityVersion = Application.unityVersion,
-                        platform = "Editor",
-                        isPlaying = false
-                    };
+                    // project/info requires Unity API for render pipeline detection
+                    throw new NotImplementedException("project/info requires main thread for render pipeline detection");
                     
                 case "script/read":
                     return ReadScriptOnWorkerThread(request);
@@ -5864,15 +5855,37 @@ namespace UnityMCP
                 CreateFolderRecursive(directory);
             }
             
+            // Use Unity-safe file creation approach
+            var scriptContent = content ?? GetDefaultScriptContent(fileName);
+            
+            // First, ensure the asset doesn't already exist
+            if (AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(path) != null)
+            {
+                throw new InvalidOperationException($"Asset already exists: {path}");
+            }
+            
+            // Write file using UTF-8 with BOM (Unity standard)
             var fullPath = Path.Combine(Application.dataPath, path.Substring(ASSETS_PREFIX_LENGTH));
-            // Unity standard: UTF-8 with BOM
             var utf8WithBom = new UTF8Encoding(true);
-            File.WriteAllText(fullPath, content ?? GetDefaultScriptContent(fileName), utf8WithBom);
+            File.WriteAllText(fullPath, scriptContent, utf8WithBom);
             
-            AssetDatabase.Refresh();
+            // Import the asset immediately and wait for completion
+            AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceSynchronousImport | ImportAssetOptions.ForceUpdate);
             
-            // Wait for asset database to process
-            System.Threading.Thread.Sleep(ASSET_REFRESH_DELAY_MS);
+            // Verify the asset was imported successfully
+            var attempts = 0;
+            const int maxAttempts = 10;
+            while (AssetDatabase.AssetPathToGUID(path) == "" && attempts < maxAttempts)
+            {
+                System.Threading.Thread.Sleep(100);
+                AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
+                attempts++;
+            }
+            
+            if (AssetDatabase.AssetPathToGUID(path) == "")
+            {
+                throw new InvalidOperationException($"Failed to import asset: {path}");
+            }
             
             return new
             {
@@ -6028,15 +6041,37 @@ namespace UnityMCP
                 CreateFolderRecursive(directory);
             }
             
+            // Use Unity-safe file creation approach
+            var shaderContent = content ?? GetDefaultShaderContent(name);
+            
+            // First, ensure the asset doesn't already exist
+            if (AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(path) != null)
+            {
+                throw new InvalidOperationException($"Asset already exists: {path}");
+            }
+            
+            // Write file using UTF-8 with BOM (Unity standard)
             var fullPath = Path.Combine(Application.dataPath, path.Substring(ASSETS_PREFIX_LENGTH));
-            // Unity standard: UTF-8 with BOM
             var utf8WithBom = new UTF8Encoding(true);
-            File.WriteAllText(fullPath, content ?? GetDefaultShaderContent(name), utf8WithBom);
+            File.WriteAllText(fullPath, shaderContent, utf8WithBom);
             
-            AssetDatabase.Refresh();
+            // Import the asset immediately and wait for completion
+            AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceSynchronousImport | ImportAssetOptions.ForceUpdate);
             
-            // Wait for asset database to process
-            System.Threading.Thread.Sleep(ASSET_REFRESH_DELAY_MS);
+            // Verify the asset was imported successfully
+            var attempts = 0;
+            const int maxAttempts = 10;
+            while (AssetDatabase.AssetPathToGUID(path) == "" && attempts < maxAttempts)
+            {
+                System.Threading.Thread.Sleep(100);
+                AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
+                attempts++;
+            }
+            
+            if (AssetDatabase.AssetPathToGUID(path) == "")
+            {
+                throw new InvalidOperationException($"Failed to import asset: {path}");
+            }
             
             return new
             {
@@ -6080,13 +6115,132 @@ namespace UnityMCP
         
         static object GetProjectInfo()
         {
+            // Detect render pipeline with multiple methods
+            string renderPipeline = "Built-in";
+            string renderPipelineVersion = "N/A";
+            string detectionMethod = "Default";
+            
+            try
+            {
+                // Method 1: Check GraphicsSettings.renderPipelineAsset
+                var renderPipelineAsset = UnityEngine.Rendering.GraphicsSettings.renderPipelineAsset;
+                Debug.Log($"{SERVER_LOG_PREFIX} RenderPipelineAsset: {(renderPipelineAsset != null ? renderPipelineAsset.GetType().FullName : "null")}");
+                
+                if (renderPipelineAsset != null)
+                {
+                    var assetType = renderPipelineAsset.GetType();
+                    var typeName = assetType.Name;
+                    var fullTypeName = assetType.FullName;
+                    
+                    Debug.Log($"{SERVER_LOG_PREFIX} Asset type: {typeName}, Full type: {fullTypeName}");
+                    
+                    if (fullTypeName.Contains("Universal") || typeName.Contains("Universal") || 
+                        fullTypeName.Contains("URP") || typeName.Contains("URP"))
+                    {
+                        renderPipeline = "URP";
+                        detectionMethod = "GraphicsSettings.renderPipelineAsset";
+                    }
+                    else if (fullTypeName.Contains("HighDefinition") || typeName.Contains("HighDefinition") || 
+                             fullTypeName.Contains("HDRP") || typeName.Contains("HDRP"))
+                    {
+                        renderPipeline = "HDRP";
+                        detectionMethod = "GraphicsSettings.renderPipelineAsset";
+                    }
+                    else
+                    {
+                        renderPipeline = $"Custom ({typeName})";
+                        detectionMethod = "GraphicsSettings.renderPipelineAsset";
+                    }
+                }
+                else
+                {
+                    // Method 2: Check for installed packages if no render pipeline asset
+                    Debug.Log($"{SERVER_LOG_PREFIX} No render pipeline asset found, checking packages...");
+                    
+                    try
+                    {
+                        var urpPackage = UnityEditor.PackageManager.PackageInfo.FindForPackageName("com.unity.render-pipelines.universal");
+                        var hdrpPackage = UnityEditor.PackageManager.PackageInfo.FindForPackageName("com.unity.render-pipelines.high-definition");
+                        
+                        if (urpPackage != null)
+                        {
+                            renderPipeline = "URP (Package Available)";
+                            renderPipelineVersion = urpPackage.version;
+                            detectionMethod = "Package Detection";
+                        }
+                        else if (hdrpPackage != null)
+                        {
+                            renderPipeline = "HDRP (Package Available)";
+                            renderPipelineVersion = hdrpPackage.version;
+                            detectionMethod = "Package Detection";
+                        }
+                        else
+                        {
+                            renderPipeline = "Built-in";
+                            detectionMethod = "No SRP packages found";
+                        }
+                    }
+                    catch (System.Exception ex)
+                    {
+                        Debug.LogWarning($"{SERVER_LOG_PREFIX} Package detection failed: {ex.Message}");
+                        renderPipeline = "Built-in (Package detection failed)";
+                        detectionMethod = "Package detection error";
+                    }
+                }
+                
+                // Try to get version info if not already obtained
+                if (renderPipelineVersion == "N/A" && renderPipeline.StartsWith("URP"))
+                {
+                    try
+                    {
+                        var packageInfo = UnityEditor.PackageManager.PackageInfo.FindForPackageName("com.unity.render-pipelines.universal");
+                        if (packageInfo != null)
+                        {
+                            renderPipelineVersion = packageInfo.version;
+                        }
+                    }
+                    catch (System.Exception ex)
+                    {
+                        Debug.LogWarning($"{SERVER_LOG_PREFIX} URP version detection failed: {ex.Message}");
+                        renderPipelineVersion = "Version unknown";
+                    }
+                }
+                else if (renderPipelineVersion == "N/A" && renderPipeline.StartsWith("HDRP"))
+                {
+                    try
+                    {
+                        var packageInfo = UnityEditor.PackageManager.PackageInfo.FindForPackageName("com.unity.render-pipelines.high-definition");
+                        if (packageInfo != null)
+                        {
+                            renderPipelineVersion = packageInfo.version;
+                        }
+                    }
+                    catch (System.Exception ex)
+                    {
+                        Debug.LogWarning($"{SERVER_LOG_PREFIX} HDRP version detection failed: {ex.Message}");
+                        renderPipelineVersion = "Version unknown";
+                    }
+                }
+                
+                Debug.Log($"{SERVER_LOG_PREFIX} Detected render pipeline: {renderPipeline} (v{renderPipelineVersion}) via {detectionMethod}");
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogError($"{SERVER_LOG_PREFIX} Render pipeline detection failed: {ex.Message}");
+                renderPipeline = "Detection Failed";
+                detectionMethod = "Exception occurred";
+            }
+            
             return new
             {
                 projectPath = Application.dataPath.Replace("/Assets", ""),
                 projectName = Application.productName,
                 unityVersion = Application.unityVersion,
                 platform = Application.platform.ToString(),
-                isPlaying = Application.isPlaying
+                isPlaying = Application.isPlaying,
+                renderPipeline = renderPipeline,
+                renderPipelineVersion = renderPipelineVersion,
+                detectionMethod = detectionMethod
             };
         }
         
@@ -6170,13 +6324,33 @@ namespace UnityMCP
             if (!path.StartsWith(ASSETS_PREFIX))
                 path = Path.Combine(DEFAULT_SCRIPTS_FOLDER, path);
             
+            // Use Unity-safe folder creation
+            if (AssetDatabase.IsValidFolder(path))
+            {
+                throw new InvalidOperationException($"Folder already exists: {path}");
+            }
+            
+            // Create directory structure properly
             var fullPath = Path.Combine(Application.dataPath, path.Substring(ASSETS_PREFIX_LENGTH));
             Directory.CreateDirectory(fullPath);
             
-            AssetDatabase.Refresh();
+            // Import the folder immediately
+            AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceSynchronousImport);
             
-            // Wait for asset database to process
-            System.Threading.Thread.Sleep(ASSET_REFRESH_DELAY_MS);
+            // Verify the folder was imported successfully
+            var attempts = 0;
+            const int maxAttempts = 10;
+            while (!AssetDatabase.IsValidFolder(path) && attempts < maxAttempts)
+            {
+                System.Threading.Thread.Sleep(100);
+                AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
+                attempts++;
+            }
+            
+            if (!AssetDatabase.IsValidFolder(path))
+            {
+                throw new InvalidOperationException($"Failed to import folder: {path}");
+            }
             
             return new
             {
@@ -6494,7 +6668,7 @@ namespace UnityMCP
     });
     this.scripts.set("UnityMCPServerWindow.cs", {
       fileName: "UnityMCPServerWindow.cs",
-      version: "1.1.0",
+      version: "1.0.0",
       content: `using System;
 using UnityEngine;
 using UnityEditor;
@@ -6671,14 +6845,23 @@ namespace UnityMCP
 }`
     });
   }
-  getScript(fileName) {
+  /**
+   * Get script by filename
+   */
+  async getScript(fileName) {
     return this.scripts.get(fileName) || null;
   }
-  getAllScripts() {
-    return Array.from(this.scripts.values());
+  /**
+   * Get script synchronously
+   */
+  getScriptSync(fileName) {
+    return this.scripts.get(fileName) || null;
   }
+  /**
+   * Write script to file with proper UTF-8 BOM for Unity compatibility
+   */
   async writeScriptToFile(fileName, targetPath) {
-    const script = this.getScript(fileName);
+    const script = await this.getScript(fileName);
     if (!script) {
       throw new Error(`Script not found: ${fileName}`);
     }
@@ -6687,6 +6870,19 @@ namespace UnityMCP
     const contentBuffer = Buffer.from(script.content, "utf8");
     const finalBuffer = Buffer.concat([utf8BOM, contentBuffer]);
     await fs.writeFile(targetPath, finalBuffer);
+  }
+  /**
+   * Get all available script names
+   */
+  getAvailableScripts() {
+    return Array.from(this.scripts.keys());
+  }
+  /**
+   * Get script version
+   */
+  getScriptVersion(fileName) {
+    const script = this.scripts.get(fileName);
+    return script?.version || null;
   }
 };
 
@@ -6729,11 +6925,12 @@ var UnityBridgeDeployService = class {
     const targetPath = path2.join(projectPath, script.targetPath);
     const needsUpdate = await this.checkNeedsUpdate(targetPath, script.version, forceUpdate);
     if (needsUpdate) {
-      const embeddedScript = this.scriptsProvider.getScript(script.fileName);
+      const embeddedScript = await this.scriptsProvider.getScript(script.fileName);
       if (!embeddedScript) {
         throw new Error(`Embedded script not found: ${script.fileName}`);
       }
-      this.logger.debug(`Using embedded script: ${script.fileName}`);
+      this.logger.debug(`Using embedded script: ${script.fileName} (loaded from source)`);
+      await this.removeExistingFiles(targetPath);
       await this.scriptsProvider.writeScriptToFile(script.fileName, targetPath);
       await this.generateMetaFile(targetPath);
       this.logger.info(`Deployed ${script.fileName} to ${script.targetPath}`);
@@ -6791,6 +6988,25 @@ MonoImporter:
   assetBundleVariant: 
 `;
     await fs2.writeFile(metaPath, metaContent, "utf8");
+  }
+  async removeExistingFiles(targetPath) {
+    try {
+      await fs2.unlink(targetPath);
+      this.logger.debug(`Removed existing file: ${targetPath}`);
+    } catch (error) {
+      if (error.code !== "ENOENT") {
+        this.logger.debug(`Failed to remove file ${targetPath}: ${error.message}`);
+      }
+    }
+    try {
+      const metaPath = targetPath + ".meta";
+      await fs2.unlink(metaPath);
+      this.logger.debug(`Removed existing meta file: ${metaPath}`);
+    } catch (error) {
+      if (error.code !== "ENOENT") {
+        this.logger.debug(`Failed to remove meta file ${targetPath}.meta: ${error.message}`);
+      }
+    }
   }
   generateGUID() {
     const hex = "0123456789abcdef";
@@ -7002,7 +7218,7 @@ var UnityMcpTools = class {
       // Project tools
       {
         name: "project_info",
-        description: "Get Unity project information",
+        description: "Get comprehensive Unity project information including render pipeline details, project path, Unity version, and platform info",
         inputSchema: {
           type: "object",
           properties: {}
@@ -7010,7 +7226,7 @@ var UnityMcpTools = class {
       },
       {
         name: "project_status",
-        description: "Check Unity server connection status",
+        description: "Check Unity MCP server connection status (simple connectivity test only)",
         inputSchema: {
           type: "object",
           properties: {}
@@ -7238,22 +7454,15 @@ Project Path: ${result.projectPath}
 Project Name: ${result.projectName || "N/A"}
 Unity Version: ${result.unityVersion}
 Platform: ${result.platform}
-Is Playing: ${result.isPlaying}`
+Is Playing: ${result.isPlaying}
+Render Pipeline: ${result.renderPipeline || "Unknown"}
+Render Pipeline Version: ${result.renderPipelineVersion || "N/A"}`
             }]
           };
         }
         case "project_status": {
           const connected = await this.adapter.isConnected();
-          let status = connected ? "Unity server is connected" : "Unity server is not connected";
-          if (connected) {
-            try {
-              const info = await this.adapter.getProjectInfo();
-              status += `
-Project: ${info.projectPath}`;
-              await this.autoDeployScripts();
-            } catch (e) {
-            }
-          }
+          const status = connected ? "Unity server is connected and ready" : "Unity server is not connected or not responding";
           return {
             content: [{
               type: "text",

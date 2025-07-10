@@ -12,6 +12,10 @@ echo "Cleaning previous builds..."
 rm -f unity-mcp-server.bundle.js
 rm -f unity-mcp-server.dxt
 
+# Generate embedded scripts from Unity source files
+echo "Generating embedded scripts..."
+node generate-embedded-scripts.cjs
+
 # Build TypeScript
 echo "Building TypeScript..."
 npm run build

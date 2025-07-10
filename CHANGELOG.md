@@ -5,6 +5,26 @@ All notable changes to Unity MCP Server will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.1] - 2025-07-10
+
+### Fixed
+- **Render Pipeline Detection**: Fixed "Unknown" render pipeline issue
+  - `project/info` now correctly runs on main thread for Unity API access
+  - Enhanced render pipeline detection with GraphicsSettings.renderPipelineAsset
+  - Added fallback to package detection when no render pipeline asset is configured
+  - Improved debug logging for render pipeline detection troubleshooting
+- **AssetDatabase Synchronization**: Fixed "[Worker0] Import Error Code:(4)" errors
+  - Added proper file cleanup before script deployment
+  - Implemented removeExistingFiles method to delete both .cs and .meta files
+  - Enhanced UnityBridgeDeployService with proper file lifecycle management
+  - Eliminated modification time mismatches between SourceAssetDB and disk
+
+### Changed
+- **Script Generation**: Unity scripts now generated dynamically from source files
+  - `generate-embedded-scripts.cjs` creates embedded-scripts.ts from actual Unity C# files
+  - Eliminates static embedded script content in favor of build-time generation
+  - Ensures Unity scripts are always up-to-date with source modifications
+
 ## [3.1.0] - 2025-07-10
 
 ### Added

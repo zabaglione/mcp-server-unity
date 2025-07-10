@@ -327,11 +327,11 @@ namespace UnityMCP
             switch (method)
             {
                 case "ping":
-                case "project/info":
                 case "script/read":
                 case "shader/read":
                     return false;
                     
+                // project/info now requires Unity API for render pipeline detection
                 // Creating, deleting files require Unity API (AssetDatabase)
                 default:
                     return true;
@@ -346,17 +346,8 @@ namespace UnityMCP
                     return new { status = "ok", time = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") };
                     
                 case "project/info":
-                    // Basic project info that doesn't require Unity API
-                    var dataPath = Application.dataPath;
-                    var projectPath = dataPath.Substring(0, dataPath.Length - ASSETS_PREFIX_LENGTH); // Remove "/Assets"
-                    return new
-                    {
-                        projectPath = projectPath,
-                        projectName = Path.GetFileName(projectPath),
-                        unityVersion = Application.unityVersion,
-                        platform = "Editor",
-                        isPlaying = false
-                    };
+                    // project/info requires Unity API for render pipeline detection
+                    throw new NotImplementedException("project/info requires main thread for render pipeline detection");
                     
                 case "script/read":
                     return ReadScriptOnWorkerThread(request);
@@ -484,15 +475,37 @@ namespace UnityMCP
                 CreateFolderRecursive(directory);
             }
             
+            // Use Unity-safe file creation approach
+            var scriptContent = content ?? GetDefaultScriptContent(fileName);
+            
+            // First, ensure the asset doesn't already exist
+            if (AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(path) != null)
+            {
+                throw new InvalidOperationException($"Asset already exists: {path}");
+            }
+            
+            // Write file using UTF-8 with BOM (Unity standard)
             var fullPath = Path.Combine(Application.dataPath, path.Substring(ASSETS_PREFIX_LENGTH));
-            // Unity standard: UTF-8 with BOM
             var utf8WithBom = new UTF8Encoding(true);
-            File.WriteAllText(fullPath, content ?? GetDefaultScriptContent(fileName), utf8WithBom);
+            File.WriteAllText(fullPath, scriptContent, utf8WithBom);
             
-            AssetDatabase.Refresh();
+            // Import the asset immediately and wait for completion
+            AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceSynchronousImport | ImportAssetOptions.ForceUpdate);
             
-            // Wait for asset database to process
-            System.Threading.Thread.Sleep(ASSET_REFRESH_DELAY_MS);
+            // Verify the asset was imported successfully
+            var attempts = 0;
+            const int maxAttempts = 10;
+            while (AssetDatabase.AssetPathToGUID(path) == "" && attempts < maxAttempts)
+            {
+                System.Threading.Thread.Sleep(100);
+                AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
+                attempts++;
+            }
+            
+            if (AssetDatabase.AssetPathToGUID(path) == "")
+            {
+                throw new InvalidOperationException($"Failed to import asset: {path}");
+            }
             
             return new
             {
@@ -648,15 +661,37 @@ namespace UnityMCP
                 CreateFolderRecursive(directory);
             }
             
+            // Use Unity-safe file creation approach
+            var shaderContent = content ?? GetDefaultShaderContent(name);
+            
+            // First, ensure the asset doesn't already exist
+            if (AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(path) != null)
+            {
+                throw new InvalidOperationException($"Asset already exists: {path}");
+            }
+            
+            // Write file using UTF-8 with BOM (Unity standard)
             var fullPath = Path.Combine(Application.dataPath, path.Substring(ASSETS_PREFIX_LENGTH));
-            // Unity standard: UTF-8 with BOM
             var utf8WithBom = new UTF8Encoding(true);
-            File.WriteAllText(fullPath, content ?? GetDefaultShaderContent(name), utf8WithBom);
+            File.WriteAllText(fullPath, shaderContent, utf8WithBom);
             
-            AssetDatabase.Refresh();
+            // Import the asset immediately and wait for completion
+            AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceSynchronousImport | ImportAssetOptions.ForceUpdate);
             
-            // Wait for asset database to process
-            System.Threading.Thread.Sleep(ASSET_REFRESH_DELAY_MS);
+            // Verify the asset was imported successfully
+            var attempts = 0;
+            const int maxAttempts = 10;
+            while (AssetDatabase.AssetPathToGUID(path) == "" && attempts < maxAttempts)
+            {
+                System.Threading.Thread.Sleep(100);
+                AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
+                attempts++;
+            }
+            
+            if (AssetDatabase.AssetPathToGUID(path) == "")
+            {
+                throw new InvalidOperationException($"Failed to import asset: {path}");
+            }
             
             return new
             {
@@ -700,13 +735,132 @@ namespace UnityMCP
         
         static object GetProjectInfo()
         {
+            // Detect render pipeline with multiple methods
+            string renderPipeline = "Built-in";
+            string renderPipelineVersion = "N/A";
+            string detectionMethod = "Default";
+            
+            try
+            {
+                // Method 1: Check GraphicsSettings.renderPipelineAsset
+                var renderPipelineAsset = UnityEngine.Rendering.GraphicsSettings.renderPipelineAsset;
+                Debug.Log($"{SERVER_LOG_PREFIX} RenderPipelineAsset: {(renderPipelineAsset != null ? renderPipelineAsset.GetType().FullName : "null")}");
+                
+                if (renderPipelineAsset != null)
+                {
+                    var assetType = renderPipelineAsset.GetType();
+                    var typeName = assetType.Name;
+                    var fullTypeName = assetType.FullName;
+                    
+                    Debug.Log($"{SERVER_LOG_PREFIX} Asset type: {typeName}, Full type: {fullTypeName}");
+                    
+                    if (fullTypeName.Contains("Universal") || typeName.Contains("Universal") || 
+                        fullTypeName.Contains("URP") || typeName.Contains("URP"))
+                    {
+                        renderPipeline = "URP";
+                        detectionMethod = "GraphicsSettings.renderPipelineAsset";
+                    }
+                    else if (fullTypeName.Contains("HighDefinition") || typeName.Contains("HighDefinition") || 
+                             fullTypeName.Contains("HDRP") || typeName.Contains("HDRP"))
+                    {
+                        renderPipeline = "HDRP";
+                        detectionMethod = "GraphicsSettings.renderPipelineAsset";
+                    }
+                    else
+                    {
+                        renderPipeline = $"Custom ({typeName})";
+                        detectionMethod = "GraphicsSettings.renderPipelineAsset";
+                    }
+                }
+                else
+                {
+                    // Method 2: Check for installed packages if no render pipeline asset
+                    Debug.Log($"{SERVER_LOG_PREFIX} No render pipeline asset found, checking packages...");
+                    
+                    try
+                    {
+                        var urpPackage = UnityEditor.PackageManager.PackageInfo.FindForPackageName("com.unity.render-pipelines.universal");
+                        var hdrpPackage = UnityEditor.PackageManager.PackageInfo.FindForPackageName("com.unity.render-pipelines.high-definition");
+                        
+                        if (urpPackage != null)
+                        {
+                            renderPipeline = "URP (Package Available)";
+                            renderPipelineVersion = urpPackage.version;
+                            detectionMethod = "Package Detection";
+                        }
+                        else if (hdrpPackage != null)
+                        {
+                            renderPipeline = "HDRP (Package Available)";
+                            renderPipelineVersion = hdrpPackage.version;
+                            detectionMethod = "Package Detection";
+                        }
+                        else
+                        {
+                            renderPipeline = "Built-in";
+                            detectionMethod = "No SRP packages found";
+                        }
+                    }
+                    catch (System.Exception ex)
+                    {
+                        Debug.LogWarning($"{SERVER_LOG_PREFIX} Package detection failed: {ex.Message}");
+                        renderPipeline = "Built-in (Package detection failed)";
+                        detectionMethod = "Package detection error";
+                    }
+                }
+                
+                // Try to get version info if not already obtained
+                if (renderPipelineVersion == "N/A" && renderPipeline.StartsWith("URP"))
+                {
+                    try
+                    {
+                        var packageInfo = UnityEditor.PackageManager.PackageInfo.FindForPackageName("com.unity.render-pipelines.universal");
+                        if (packageInfo != null)
+                        {
+                            renderPipelineVersion = packageInfo.version;
+                        }
+                    }
+                    catch (System.Exception ex)
+                    {
+                        Debug.LogWarning($"{SERVER_LOG_PREFIX} URP version detection failed: {ex.Message}");
+                        renderPipelineVersion = "Version unknown";
+                    }
+                }
+                else if (renderPipelineVersion == "N/A" && renderPipeline.StartsWith("HDRP"))
+                {
+                    try
+                    {
+                        var packageInfo = UnityEditor.PackageManager.PackageInfo.FindForPackageName("com.unity.render-pipelines.high-definition");
+                        if (packageInfo != null)
+                        {
+                            renderPipelineVersion = packageInfo.version;
+                        }
+                    }
+                    catch (System.Exception ex)
+                    {
+                        Debug.LogWarning($"{SERVER_LOG_PREFIX} HDRP version detection failed: {ex.Message}");
+                        renderPipelineVersion = "Version unknown";
+                    }
+                }
+                
+                Debug.Log($"{SERVER_LOG_PREFIX} Detected render pipeline: {renderPipeline} (v{renderPipelineVersion}) via {detectionMethod}");
+            }
+            catch (System.Exception ex)
+            {
+                Debug.LogError($"{SERVER_LOG_PREFIX} Render pipeline detection failed: {ex.Message}");
+                renderPipeline = "Detection Failed";
+                detectionMethod = "Exception occurred";
+            }
+            
             return new
             {
                 projectPath = Application.dataPath.Replace("/Assets", ""),
                 projectName = Application.productName,
                 unityVersion = Application.unityVersion,
                 platform = Application.platform.ToString(),
-                isPlaying = Application.isPlaying
+                isPlaying = Application.isPlaying,
+                renderPipeline = renderPipeline,
+                renderPipelineVersion = renderPipelineVersion,
+                detectionMethod = detectionMethod
             };
         }
         
@@ -790,13 +944,33 @@ namespace UnityMCP
             if (!path.StartsWith(ASSETS_PREFIX))
                 path = Path.Combine(DEFAULT_SCRIPTS_FOLDER, path);
             
+            // Use Unity-safe folder creation
+            if (AssetDatabase.IsValidFolder(path))
+            {
+                throw new InvalidOperationException($"Folder already exists: {path}");
+            }
+            
+            // Create directory structure properly
             var fullPath = Path.Combine(Application.dataPath, path.Substring(ASSETS_PREFIX_LENGTH));
             Directory.CreateDirectory(fullPath);
             
-            AssetDatabase.Refresh();
+            // Import the folder immediately
+            AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceSynchronousImport);
             
-            // Wait for asset database to process
-            System.Threading.Thread.Sleep(ASSET_REFRESH_DELAY_MS);
+            // Verify the folder was imported successfully
+            var attempts = 0;
+            const int maxAttempts = 10;
+            while (!AssetDatabase.IsValidFolder(path) && attempts < maxAttempts)
+            {
+                System.Threading.Thread.Sleep(100);
+                AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
+                attempts++;
+            }
+            
+            if (!AssetDatabase.IsValidFolder(path))
+            {
+                throw new InvalidOperationException($"Failed to import folder: {path}");
+            }
             
             return new
             {
