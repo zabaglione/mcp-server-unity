@@ -1,0 +1,71 @@
+{
+  "name": "unity-mcp-bridge",
+  "description": "Unity MCP Bridge - Enable AI assistants to interact with Unity projects",
+  "author": "zabaglione",
+  "version": "3.1.0",
+  "mcp": {
+    "commands": ["node", "build/simple-index.js"],
+    "tools": [
+      {
+        "name": "project_info",
+        "description": "Get Unity project information"
+      },
+      {
+        "name": "project_status",
+        "description": "Check Unity connection status"
+      },
+      {
+        "name": "setup_unity_bridge",
+        "description": "Install/update Unity MCP scripts"
+      },
+      {
+        "name": "script_create",
+        "description": "Create a new C# script"
+      },
+      {
+        "name": "script_read",
+        "description": "Read script contents"
+      },
+      {
+        "name": "script_apply_diff",
+        "description": "Apply unified diff to update scripts"
+      },
+      {
+        "name": "script_delete",
+        "description": "Delete a script"
+      },
+      {
+        "name": "shader_create",
+        "description": "Create a new shader"
+      },
+      {
+        "name": "shader_read",
+        "description": "Read shader contents"
+      },
+      {
+        "name": "shader_delete",
+        "description": "Delete a shader"
+      },
+      {
+        "name": "folder_create",
+        "description": "Create a new folder"
+      },
+      {
+        "name": "folder_rename",
+        "description": "Rename a folder"
+      },
+      {
+        "name": "folder_move",
+        "description": "Move a folder to new location"
+      },
+      {
+        "name": "folder_delete",
+        "description": "Delete a folder recursively"
+      },
+      {
+        "name": "folder_list",
+        "description": "List folder contents"
+      }
+    ]
+  }
+}
