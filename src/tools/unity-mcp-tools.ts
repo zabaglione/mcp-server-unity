@@ -1,5 +1,6 @@
 import { Tool } from '@modelcontextprotocol/sdk/types.js';
 import { UnityHttpAdapter } from '../adapters/unity-http-adapter.js';
+import { UnityBridgeDeployService } from '../services/unity-bridge-deploy-service.js';
 
 /**
  * Unity MCP Tools
@@ -7,6 +8,7 @@ import { UnityHttpAdapter } from '../adapters/unity-http-adapter.js';
  */
 export class UnityMcpTools {
   private adapter: UnityHttpAdapter;
+  private deployService: UnityBridgeDeployService;
 
   constructor() {
     const port = process.env.UNITY_MCP_PORT ? parseInt(process.env.UNITY_MCP_PORT) : 23457;
@@ -17,6 +19,8 @@ export class UnityMcpTools {
       url,
       timeout: parseInt(process.env.UNITY_MCP_TIMEOUT || '120000')
     });
+    
+    this.deployService = new UnityBridgeDeployService();
     
     // Check connection on startup
     this.checkConnection();
@@ -32,6 +36,21 @@ export class UnityMcpTools {
       }
     } catch (error: any) {
       console.error(`[Unity MCP] Connection check failed: ${error.message}`);
+    }
+  }
+  
+  /**
+   * Auto-deploy Unity MCP scripts if connected
+   */
+  private async autoDeployScripts(): Promise<void> {
+    try {
+      const result = await this.adapter.getProjectInfo();
+      await this.deployService.deployScripts({ 
+        projectPath: result.projectPath,
+        forceUpdate: false 
+      });
+    } catch (error: any) {
+      console.error(`[Unity MCP] Failed to auto-deploy scripts: ${error.message}`);
     }
   }
 
@@ -188,6 +207,25 @@ export class UnityMcpTools {
           type: 'object',
           properties: {}
         }
+      },
+      {
+        name: 'setup_unity_bridge',
+        description: 'Install/update Unity MCP bridge scripts to a Unity project (works even if Unity server is not running)',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            projectPath: {
+              type: 'string',
+              description: 'Path to the Unity project'
+            },
+            forceUpdate: {
+              type: 'boolean',
+              description: 'Force update even if scripts are up to date',
+              default: false
+            }
+          },
+          required: ['projectPath']
+        }
       }
     ];
   }
@@ -294,6 +332,10 @@ export class UnityMcpTools {
         // Project operations
         case 'project_info': {
           const result = await this.adapter.getProjectInfo();
+          
+          // Auto-deploy scripts if needed
+          await this.autoDeployScripts();
+          
           return {
             content: [{
               type: 'text',
@@ -315,6 +357,9 @@ Is Playing: ${result.isPlaying}`
             try {
               const info = await this.adapter.getProjectInfo();
               status += `\nProject: ${info.projectPath}`;
+              
+              // Auto-deploy scripts if needed
+              await this.autoDeployScripts();
             } catch (e) {
               // Ignore error getting project info
             }
@@ -326,6 +371,25 @@ Is Playing: ${result.isPlaying}`
               text: status
             }]
           };
+        }
+        
+        case 'setup_unity_bridge': {
+          const { projectPath, forceUpdate } = args;
+          if (!projectPath) {
+            throw new Error('projectPath is required');
+          }
+          
+          try {
+            await this.deployService.deployScripts({ projectPath, forceUpdate });
+            return {
+              content: [{
+                type: 'text',
+                text: `Unity MCP bridge scripts installed successfully to:\n${projectPath}/Assets/Editor/MCP/\n\nPlease restart Unity Editor or open Window > Unity MCP Server to start the server.`
+              }]
+            };
+          } catch (error: any) {
+            throw new Error(`Failed to install scripts: ${error.message}`);
+          }
         }
         
         default:

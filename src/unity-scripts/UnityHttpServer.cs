@@ -12,16 +12,39 @@ using Newtonsoft.Json.Linq;
 
 namespace UnityMCP
 {
+    [InitializeOnLoad]
+    public static class UnityMCPInstaller
+    {
+        static UnityMCPInstaller()
+        {
+            CheckAndUpdateScripts();
+        }
+        
+        static void CheckAndUpdateScripts()
+        {
+            var installedVersion = EditorPrefs.GetString(UnityHttpServer.VERSION_META_KEY, "0.0.0");
+            if (installedVersion != UnityHttpServer.SCRIPT_VERSION)
+            {
+                Debug.Log($"[UnityMCP] Updating Unity MCP scripts from version {installedVersion} to {UnityHttpServer.SCRIPT_VERSION}");
+                // Version update logic will be handled by the MCP server
+                EditorPrefs.SetString(UnityHttpServer.VERSION_META_KEY, UnityHttpServer.SCRIPT_VERSION);
+            }
+        }
+    }
     /// <summary>
     /// Simple HTTP server for Unity MCP integration
     /// </summary>
     public static class UnityHttpServer
     {
+        // Version information for auto-update
+        public const string SCRIPT_VERSION = "1.1.0";
+        public const string VERSION_META_KEY = "UnityMCP.InstalledVersion";
+        
         // Configuration constants
         private const int DEFAULT_PORT = 23457;
         private const int REQUEST_TIMEOUT_MS = 120000; // 2 minutes
         private const int THREAD_JOIN_TIMEOUT_MS = 1000; // 1 second
-        private const string SERVER_LOG_PREFIX = "[UnityMCP]";
+        public const string SERVER_LOG_PREFIX = "[UnityMCP]";
         private const string PREFS_PORT_KEY = "UnityMCP.ServerPort";
         private const string PREFS_PORT_BEFORE_PLAY_KEY = "UnityMCP.ServerPortBeforePlay";
         
@@ -653,56 +676,55 @@ namespace UnityMCP
         static string GetDefaultScriptContent(string fileName)
         {
             var className = Path.GetFileNameWithoutExtension(fileName);
-            return $@"using UnityEngine;
-
-public class {className} : MonoBehaviour
-{{
-    void Start()
-    {{
-        
-    }}
-    
-    void Update()
-    {{
-        
-    }}
-}}";
+            return "using UnityEngine;\n\n" +
+                   $"public class {className} : MonoBehaviour\n" +
+                   "{\n" +
+                   "    void Start()\n" +
+                   "    {\n" +
+                   "        \n" +
+                   "    }\n" +
+                   "    \n" +
+                   "    void Update()\n" +
+                   "    {\n" +
+                   "        \n" +
+                   "    }\n" +
+                   "}";
         }
         
         static string GetDefaultShaderContent(string fileName)
         {
             var shaderName = Path.GetFileNameWithoutExtension(fileName);
-            return $@"Shader ""Custom/{shaderName}""
-{{
-    Properties
-    {{
-        _MainTex (""Texture"", 2D) = ""white"" {{}}
-    }}
-    SubShader
-    {{
-        Tags {{ ""RenderType""=""Opaque"" }}
-        LOD 200
-
-        CGPROGRAM
-        #pragma surface surf Standard fullforwardshadows
-
-        sampler2D _MainTex;
-
-        struct Input
-        {{
-            float2 uv_MainTex;
-        }};
-
-        void surf (Input IN, inout SurfaceOutputStandard o)
-        {{
-            fixed4 c = tex2D (_MainTex, IN.uv_MainTex);
-            o.Albedo = c.rgb;
-            o.Alpha = c.a;
-        }}
-        ENDCG
-    }}
-    FallBack ""Diffuse""
-}}";
+            return $"Shader \"Custom/{shaderName}\"\n" +
+                   "{\n" +
+                   "    Properties\n" +
+                   "    {\n" +
+                   "        _MainTex (\"Texture\", 2D) = \"white\" {}\n" +
+                   "    }\n" +
+                   "    SubShader\n" +
+                   "    {\n" +
+                   "        Tags { \"RenderType\"=\"Opaque\" }\n" +
+                   "        LOD 200\n" +
+                   "\n" +
+                   "        CGPROGRAM\n" +
+                   "        #pragma surface surf Standard fullforwardshadows\n" +
+                   "\n" +
+                   "        sampler2D _MainTex;\n" +
+                   "\n" +
+                   "        struct Input\n" +
+                   "        {\n" +
+                   "            float2 uv_MainTex;\n" +
+                   "        };\n" +
+                   "\n" +
+                   "        void surf (Input IN, inout SurfaceOutputStandard o)\n" +
+                   "        {\n" +
+                   "            fixed4 c = tex2D (_MainTex, IN.uv_MainTex);\n" +
+                   "            o.Albedo = c.rgb;\n" +
+                   "            o.Alpha = c.a;\n" +
+                   "        }\n" +
+                   "        ENDCG\n" +
+                   "    }\n" +
+                   "    FallBack \"Diffuse\"\n" +
+                   "}";
         }
         
         static void SendResponse(HttpListenerResponse response, int statusCode, bool success, object result, string error)

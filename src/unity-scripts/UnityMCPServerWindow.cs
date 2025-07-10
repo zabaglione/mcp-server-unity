@@ -9,6 +9,9 @@ namespace UnityMCP
     /// </summary>
     public class UnityMCPServerWindow : EditorWindow
     {
+        // Version information (should match UnityHttpServer)
+        private const string SCRIPT_VERSION = "1.1.0";
+        
         private int serverPort = 23457;
         private bool isServerRunning = false;
         private string serverStatus = "Stopped";
@@ -36,6 +39,7 @@ namespace UnityMCP
         void OnGUI()
         {
             GUILayout.Label("Unity MCP Server Control", EditorStyles.boldLabel);
+            GUILayout.Label($"Version: {SCRIPT_VERSION}", EditorStyles.miniLabel);
             
             EditorGUILayout.Space();
             
