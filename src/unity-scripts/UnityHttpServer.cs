@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net;
 using System.Text;
 using System.Threading;
@@ -14,29 +15,98 @@ namespace UnityMCP
     /// <summary>
     /// Simple HTTP server for Unity MCP integration
     /// </summary>
-    [InitializeOnLoad]
     public static class UnityHttpServer
     {
-        private const int PORT = 23457;
+        // Configuration constants
+        private const int DEFAULT_PORT = 23457;
+        private const int REQUEST_TIMEOUT_MS = 120000; // 2 minutes
+        private const int THREAD_JOIN_TIMEOUT_MS = 1000; // 1 second
+        private const string SERVER_LOG_PREFIX = "[UnityMCP]";
+        private const string PREFS_PORT_KEY = "UnityMCP.ServerPort";
+        private const string PREFS_PORT_BEFORE_PLAY_KEY = "UnityMCP.ServerPortBeforePlay";
+        
+        // File path constants
+        private const string ASSETS_PREFIX = "Assets/";
+        private const int ASSETS_PREFIX_LENGTH = 7;
+        private const string DEFAULT_SCRIPTS_FOLDER = "Assets/Scripts";
+        private const string DEFAULT_SHADERS_FOLDER = "Assets/Shaders";
+        private const string CS_EXTENSION = ".cs";
+        private const string SHADER_EXTENSION = ".shader";
+        
         private static HttpListener httpListener;
         private static Thread listenerThread;
         private static bool isRunning = false;
+        private static int currentPort = DEFAULT_PORT;
         
-        static UnityHttpServer()
+        /// <summary>
+        /// Gets whether the server is currently running
+        /// </summary>
+        public static bool IsRunning => isRunning;
+        
+        /// <summary>
+        /// Gets the current port the server is running on
+        /// </summary>
+        public static int CurrentPort => currentPort;
+        
+        [InitializeOnLoad]
+        static class AutoShutdown
         {
-            EditorApplication.playModeStateChanged += OnPlayModeChanged;
-            EditorApplication.quitting += Shutdown;
-            EditorApplication.delayCall += Start;
+            static AutoShutdown()
+            {
+                EditorApplication.playModeStateChanged += OnPlayModeChanged;
+                EditorApplication.quitting += Shutdown;
+                
+                // Handle script recompilation
+                UnityEditor.Compilation.CompilationPipeline.compilationStarted += OnCompilationStarted;
+                UnityEditor.Compilation.CompilationPipeline.compilationFinished += OnCompilationFinished;
+                
+                // Auto-start server on Unity startup
+                EditorApplication.delayCall += () => {
+                    if (!isRunning)
+                    {
+                        var savedPort = EditorPrefs.GetInt(PREFS_PORT_KEY, DEFAULT_PORT);
+                        Debug.Log($"{SERVER_LOG_PREFIX} Auto-starting server on port {savedPort}");
+                        Start(savedPort);
+                    }
+                };
+            }
+            
+            static void OnCompilationStarted(object obj)
+            {
+                Debug.Log($"{SERVER_LOG_PREFIX} Compilation started - stopping server");
+                if (isRunning)
+                {
+                    Shutdown();
+                }
+            }
+            
+            static void OnCompilationFinished(object obj)
+            {
+                Debug.Log($"{SERVER_LOG_PREFIX} Compilation finished - auto-restarting server");
+                // Always auto-restart after compilation
+                var savedPort = EditorPrefs.GetInt(PREFS_PORT_KEY, DEFAULT_PORT);
+                EditorApplication.delayCall += () => Start(savedPort);
+            }
         }
         
-        public static void Start()
+        /// <summary>
+        /// Start the HTTP server on the specified port
+        /// </summary>
+        /// <param name="port">Port to listen on</param>
+        public static void Start(int port = DEFAULT_PORT)
         {
-            if (isRunning) return;
+            if (isRunning) 
+            {
+                Debug.LogWarning($"{SERVER_LOG_PREFIX} Server is already running. Stop it first.");
+                return;
+            }
+            
+            currentPort = port;
             
             try
             {
                 httpListener = new HttpListener();
-                httpListener.Prefixes.Add($"http://localhost:{PORT}/");
+                httpListener.Prefixes.Add($"http://localhost:{currentPort}/");
                 httpListener.Start();
                 isRunning = true;
                 
@@ -47,31 +117,65 @@ namespace UnityMCP
                 };
                 listenerThread.Start();
                 
-                Debug.Log($"[UnityMCP] HTTP Server started on port {PORT}");
+                Debug.Log($"{SERVER_LOG_PREFIX} HTTP Server started on port {currentPort}");
             }
             catch (Exception e)
             {
-                Debug.LogError($"[UnityMCP] Failed to start HTTP server: {e.Message}");
+                isRunning = false;
+                Debug.LogError($"{SERVER_LOG_PREFIX} Failed to start HTTP server: {e.Message}");
+                throw;
             }
         }
         
+        /// <summary>
+        /// Stop the HTTP server
+        /// </summary>
         public static void Shutdown()
         {
+            if (!isRunning)
+            {
+                Debug.LogWarning($"{SERVER_LOG_PREFIX} Server is not running.");
+                return;
+            }
+            
             isRunning = false;
-            httpListener?.Stop();
-            listenerThread?.Join(1000);
-            Debug.Log("[UnityMCP] HTTP Server stopped");
+            
+            try
+            {
+                httpListener?.Stop();
+                httpListener?.Close();
+                listenerThread?.Join(THREAD_JOIN_TIMEOUT_MS);
+                Debug.Log($"{SERVER_LOG_PREFIX} HTTP Server stopped");
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"{SERVER_LOG_PREFIX} Error during shutdown: {e.Message}");
+            }
+            finally
+            {
+                httpListener = null;
+                listenerThread = null;
+            }
         }
         
         static void OnPlayModeChanged(PlayModeStateChange state)
         {
+            // Stop server when entering play mode to avoid conflicts
             if (state == PlayModeStateChange.ExitingEditMode)
             {
-                Shutdown();
+                if (isRunning)
+                {
+                    Debug.Log($"{SERVER_LOG_PREFIX} Stopping server due to play mode change");
+                    EditorPrefs.SetInt(PREFS_PORT_BEFORE_PLAY_KEY, currentPort);
+                    Shutdown();
+                }
             }
+            // Restart server when returning to edit mode
             else if (state == PlayModeStateChange.EnteredEditMode)
             {
-                EditorApplication.delayCall += Start;
+                var savedPort = EditorPrefs.GetInt(PREFS_PORT_BEFORE_PLAY_KEY, DEFAULT_PORT);
+                Debug.Log($"{SERVER_LOG_PREFIX} Restarting server after play mode on port {savedPort}");
+                EditorApplication.delayCall += () => Start(savedPort);
             }
         }
         
@@ -87,7 +191,7 @@ namespace UnityMCP
                 catch (Exception e)
                 {
                     if (isRunning)
-                        Debug.LogError($"[UnityMCP] Listen error: {e.Message}");
+                        Debug.LogError($"{SERVER_LOG_PREFIX} Listen error: {e.Message}");
                 }
             }
         }
@@ -107,7 +211,8 @@ namespace UnityMCP
                 }
                 
                 string requestBody;
-                using (var reader = new StreamReader(request.InputStream, request.ContentEncoding))
+                // Force UTF-8 encoding for request body
+                using (var reader = new StreamReader(request.InputStream, Encoding.UTF8))
                 {
                     requestBody = reader.ReadToEnd();
                 }
@@ -121,48 +226,155 @@ namespace UnityMCP
                     return;
                 }
                 
-                Debug.Log($"[UnityMCP] Processing request: {method}");
+                Debug.Log($"{SERVER_LOG_PREFIX} Processing request: {method}");
                 
-                // Execute on main thread
-                object result = null;
-                Exception error = null;
-                var resetEvent = new ManualResetEvent(false);
+                // Check if this request requires main thread
+                bool requiresMainThread = RequiresMainThread(method);
                 
-                EditorApplication.delayCall += () =>
+                if (!requiresMainThread)
                 {
+                    // Process directly on worker thread
                     try
                     {
-                        result = ProcessRequest(method, requestData);
+                        var result = ProcessRequestOnWorkerThread(method, requestData);
+                        SendResponse(response, 200, true, result, null);
                     }
                     catch (Exception e)
                     {
-                        error = e;
+                        var statusCode = e is ArgumentException ? 400 : 500;
+                        SendResponse(response, statusCode, false, null, e.Message);
                     }
-                    finally
+                }
+                else
+                {
+                    // Execute on main thread for Unity API calls
+                    object result = null;
+                    Exception error = null;
+                    var resetEvent = new ManualResetEvent(false);
+                    
+                    EditorApplication.delayCall += () =>
                     {
-                        resetEvent.Set();
+                        try
+                        {
+                            Debug.Log($"{SERVER_LOG_PREFIX} Processing on main thread: {method}");
+                            result = ProcessRequest(method, requestData);
+                            Debug.Log($"{SERVER_LOG_PREFIX} Completed processing: {method}");
+                        }
+                        catch (Exception e)
+                        {
+                            error = e;
+                            Debug.LogError($"{SERVER_LOG_PREFIX} Error processing {method}: {e.Message}");
+                        }
+                        finally
+                        {
+                            resetEvent.Set();
+                        }
+                    };
+                    
+                    if (!resetEvent.WaitOne(REQUEST_TIMEOUT_MS))
+                    {
+                        SendResponse(response, 504, false, null, "Request timeout - Unity may be busy or unfocused");
+                        return;
                     }
-                };
-                
-                if (!resetEvent.WaitOne(15000))
-                {
-                    SendResponse(response, 504, false, null, "Request timeout - Unity may be busy or unfocused");
-                    return;
+                    
+                    if (error != null)
+                    {
+                        var statusCode = error is ArgumentException ? 400 : 500;
+                        SendResponse(response, statusCode, false, null, error.Message);
+                        return;
+                    }
+                    
+                    SendResponse(response, 200, true, result, null);
                 }
-                
-                if (error != null)
-                {
-                    var statusCode = error is ArgumentException ? 400 : 500;
-                    SendResponse(response, statusCode, false, null, error.Message);
-                    return;
-                }
-                
-                SendResponse(response, 200, true, result, null);
             }
             catch (Exception e)
             {
                 SendResponse(response, 400, false, null, $"Bad request: {e.Message}");
             }
+        }
+        
+        static bool RequiresMainThread(string method)
+        {
+            // These methods can run on worker thread
+            switch (method)
+            {
+                case "ping":
+                case "project/info":
+                case "script/read":
+                case "shader/read":
+                    return false;
+                    
+                // Creating, deleting files require Unity API (AssetDatabase)
+                default:
+                    return true;
+            }
+        }
+        
+        static object ProcessRequestOnWorkerThread(string method, JObject request)
+        {
+            switch (method)
+            {
+                case "ping":
+                    return new { status = "ok", time = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") };
+                    
+                case "project/info":
+                    // Basic project info that doesn't require Unity API
+                    var dataPath = Application.dataPath;
+                    var projectPath = dataPath.Substring(0, dataPath.Length - ASSETS_PREFIX_LENGTH); // Remove "/Assets"
+                    return new
+                    {
+                        projectPath = projectPath,
+                        projectName = Path.GetFileName(projectPath),
+                        unityVersion = Application.unityVersion,
+                        platform = "Editor",
+                        isPlaying = false
+                    };
+                    
+                case "script/read":
+                    return ReadScriptOnWorkerThread(request);
+                    
+                case "shader/read":
+                    return ReadShaderOnWorkerThread(request);
+                    
+                default:
+                    throw new NotImplementedException($"Method not implemented for worker thread: {method}");
+            }
+        }
+        
+        static object ReadScriptOnWorkerThread(JObject request)
+        {
+            var path = request["path"]?.ToString();
+            if (string.IsNullOrEmpty(path))
+                throw new ArgumentException("path is required");
+            
+            var fullPath = Path.Combine(Application.dataPath, path.Substring(ASSETS_PREFIX_LENGTH));
+            if (!File.Exists(fullPath))
+                throw new FileNotFoundException($"File not found: {path}");
+            
+            return new
+            {
+                path = path,
+                content = File.ReadAllText(fullPath, new UTF8Encoding(true)),
+                guid = "" // GUID requires AssetDatabase, skip in worker thread
+            };
+        }
+        
+        static object ReadShaderOnWorkerThread(JObject request)
+        {
+            var path = request["path"]?.ToString();
+            if (string.IsNullOrEmpty(path))
+                throw new ArgumentException("path is required");
+            
+            var fullPath = Path.Combine(Application.dataPath, path.Substring(ASSETS_PREFIX_LENGTH));
+            if (!File.Exists(fullPath))
+                throw new FileNotFoundException($"File not found: {path}");
+            
+            return new
+            {
+                path = path,
+                content = File.ReadAllText(fullPath, new UTF8Encoding(true)),
+                guid = "" // GUID requires AssetDatabase, skip in worker thread
+            };
         }
         
         static object ProcessRequest(string method, JObject request)
@@ -179,6 +391,8 @@ namespace UnityMCP
                     return ReadScript(request);
                 case "script/delete":
                     return DeleteScript(request);
+                case "script/applyDiff":
+                    return ApplyDiff(request);
                 
                 // Shader operations
                 case "shader/create":
@@ -203,11 +417,11 @@ namespace UnityMCP
             if (string.IsNullOrEmpty(fileName))
                 throw new ArgumentException("fileName is required");
             
-            if (!fileName.EndsWith(".cs"))
-                fileName += ".cs";
+            if (!fileName.EndsWith(CS_EXTENSION))
+                fileName += CS_EXTENSION;
             
             var content = request["content"]?.ToString();
-            var folder = request["folder"]?.ToString() ?? "Assets/Scripts";
+            var folder = request["folder"]?.ToString() ?? DEFAULT_SCRIPTS_FOLDER;
             
             var path = Path.Combine(folder, fileName);
             var directory = Path.GetDirectoryName(path);
@@ -218,8 +432,10 @@ namespace UnityMCP
                 CreateFolderRecursive(directory);
             }
             
-            var fullPath = Path.Combine(Application.dataPath, path.Substring(7));
-            File.WriteAllText(fullPath, content ?? GetDefaultScriptContent(fileName));
+            var fullPath = Path.Combine(Application.dataPath, path.Substring(ASSETS_PREFIX_LENGTH));
+            // Unity standard: UTF-8 with BOM
+            var utf8WithBom = new UTF8Encoding(true);
+            File.WriteAllText(fullPath, content ?? GetDefaultScriptContent(fileName), utf8WithBom);
             
             AssetDatabase.Refresh();
             
@@ -236,14 +452,14 @@ namespace UnityMCP
             if (string.IsNullOrEmpty(path))
                 throw new ArgumentException("path is required");
             
-            var fullPath = Path.Combine(Application.dataPath, path.Substring(7));
+            var fullPath = Path.Combine(Application.dataPath, path.Substring(ASSETS_PREFIX_LENGTH));
             if (!File.Exists(fullPath))
                 throw new FileNotFoundException($"File not found: {path}");
             
             return new
             {
                 path = path,
-                content = File.ReadAllText(fullPath),
+                content = File.ReadAllText(fullPath, new UTF8Encoding(true)),
                 guid = AssetDatabase.AssetPathToGUID(path)
             };
         }
@@ -260,17 +476,99 @@ namespace UnityMCP
             return new { message = "Script deleted successfully" };
         }
         
+        static object ApplyDiff(JObject request)
+        {
+            var path = request["path"]?.ToString();
+            var diff = request["diff"]?.ToString();
+            var options = request["options"] as JObject;
+            
+            if (string.IsNullOrEmpty(path))
+                throw new ArgumentException("path is required");
+            if (string.IsNullOrEmpty(diff))
+                throw new ArgumentException("diff is required");
+            
+            var fullPath = Path.Combine(Application.dataPath, path.Substring(ASSETS_PREFIX_LENGTH));
+            if (!File.Exists(fullPath))
+                throw new FileNotFoundException($"File not found: {path}");
+            
+            var dryRun = options?["dryRun"]?.Value<bool>() ?? false;
+            
+            // Read current content using UTF-8 with BOM (Unity standard)
+            var utf8WithBom = new UTF8Encoding(true);
+            var originalContent = File.ReadAllText(fullPath, utf8WithBom);
+            var lines = originalContent.Split('\n').ToList();
+            
+            // Parse and apply unified diff
+            var diffLines = diff.Split('\n');
+            var linesAdded = 0;
+            var linesRemoved = 0;
+            var currentLine = 0;
+            
+            for (int i = 0; i < diffLines.Length; i++)
+            {
+                var line = diffLines[i];
+                if (line.StartsWith("@@"))
+                {
+                    // Parse hunk header: @@ -l,s +l,s @@
+                    var match = System.Text.RegularExpressions.Regex.Match(line, @"@@ -(\d+),?\d* \+(\d+),?\d* @@");
+                    if (match.Success)
+                    {
+                        currentLine = int.Parse(match.Groups[1].Value) - 1;
+                    }
+                }
+                else if (line.StartsWith("-") && !line.StartsWith("---"))
+                {
+                    // Remove line
+                    if (currentLine < lines.Count)
+                    {
+                        lines.RemoveAt(currentLine);
+                        linesRemoved++;
+                    }
+                }
+                else if (line.StartsWith("+") && !line.StartsWith("+++"))
+                {
+                    // Add line
+                    lines.Insert(currentLine, line.Substring(1));
+                    currentLine++;
+                    linesAdded++;
+                }
+                else if (line.StartsWith(" "))
+                {
+                    // Context line
+                    currentLine++;
+                }
+            }
+            
+            // Write result if not dry run
+            if (!dryRun)
+            {
+                var updatedContent = string.Join("\n", lines);
+                // Write with UTF-8 with BOM (Unity standard)
+                File.WriteAllText(fullPath, updatedContent, utf8WithBom);
+                AssetDatabase.Refresh();
+            }
+            
+            return new
+            {
+                path = path,
+                linesAdded = linesAdded,
+                linesRemoved = linesRemoved,
+                dryRun = dryRun,
+                guid = AssetDatabase.AssetPathToGUID(path)
+            };
+        }
+        
         static object CreateShader(JObject request)
         {
             var name = request["name"]?.ToString();
             if (string.IsNullOrEmpty(name))
                 throw new ArgumentException("name is required");
             
-            if (!name.EndsWith(".shader"))
-                name += ".shader";
+            if (!name.EndsWith(SHADER_EXTENSION))
+                name += SHADER_EXTENSION;
             
             var content = request["content"]?.ToString();
-            var folder = request["folder"]?.ToString() ?? "Assets/Shaders";
+            var folder = request["folder"]?.ToString() ?? DEFAULT_SHADERS_FOLDER;
             
             var path = Path.Combine(folder, name);
             var directory = Path.GetDirectoryName(path);
@@ -280,8 +578,10 @@ namespace UnityMCP
                 CreateFolderRecursive(directory);
             }
             
-            var fullPath = Path.Combine(Application.dataPath, path.Substring(7));
-            File.WriteAllText(fullPath, content ?? GetDefaultShaderContent(name));
+            var fullPath = Path.Combine(Application.dataPath, path.Substring(ASSETS_PREFIX_LENGTH));
+            // Unity standard: UTF-8 with BOM
+            var utf8WithBom = new UTF8Encoding(true);
+            File.WriteAllText(fullPath, content ?? GetDefaultShaderContent(name), utf8WithBom);
             
             AssetDatabase.Refresh();
             
@@ -298,14 +598,14 @@ namespace UnityMCP
             if (string.IsNullOrEmpty(path))
                 throw new ArgumentException("path is required");
             
-            var fullPath = Path.Combine(Application.dataPath, path.Substring(7));
+            var fullPath = Path.Combine(Application.dataPath, path.Substring(ASSETS_PREFIX_LENGTH));
             if (!File.Exists(fullPath))
                 throw new FileNotFoundException($"File not found: {path}");
             
             return new
             {
                 path = path,
-                content = File.ReadAllText(fullPath),
+                content = File.ReadAllText(fullPath, new UTF8Encoding(true)),
                 guid = AssetDatabase.AssetPathToGUID(path)
             };
         }
@@ -408,7 +708,8 @@ public class {className} : MonoBehaviour
         static void SendResponse(HttpListenerResponse response, int statusCode, bool success, object result, string error)
         {
             response.StatusCode = statusCode;
-            response.ContentType = "application/json";
+            response.ContentType = "application/json; charset=utf-8";
+            response.ContentEncoding = Encoding.UTF8;
             
             var responseData = new Dictionary<string, object>
             {

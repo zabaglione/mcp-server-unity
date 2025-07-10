@@ -28,35 +28,70 @@ export class UnityHttpAdapter {
    * Call a method on the Unity server
    */
   async call(method: string, params: Record<string, any> = {}): Promise<any> {
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), this.timeout);
-
-      const response = await fetch(this.url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ method, ...params }),
-        signal: controller.signal
-      });
-
-      clearTimeout(timeoutId);
-
-      const result = await response.json() as UnityResponse;
+    const startTime = Date.now();
+    console.error(`[Unity HTTP] Calling method: ${method}`);
+    
+    const maxRetries = 3;
+    let lastError: any;
+    
+    for (let retry = 0; retry < maxRetries; retry++) {
+      if (retry > 0) {
+        console.error(`[Unity HTTP] Retry ${retry}/${maxRetries - 1} for method: ${method}`);
+        await new Promise(resolve => setTimeout(resolve, 1000 * retry)); // Exponential backoff
+      }
       
-      if (!result.success) {
-        throw new Error(result.error || 'Unknown error');
-      }
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => {
+          console.error(`[Unity HTTP] Request timeout after ${this.timeout}ms for method: ${method}`);
+          controller.abort();
+        }, this.timeout);
 
-      return result.result;
-    } catch (error: any) {
-      if (error.name === 'AbortError') {
-        throw new Error('Request timeout');
+        const response = await fetch(this.url, {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json; charset=utf-8',
+            'Accept': 'application/json; charset=utf-8'
+          },
+          body: JSON.stringify({ method, ...params }),
+          signal: controller.signal
+        });
+
+        clearTimeout(timeoutId);
+        
+        const elapsed = Date.now() - startTime;
+        console.error(`[Unity HTTP] Response received in ${elapsed}ms for method: ${method}`);
+
+        const result = await response.json() as UnityResponse;
+        
+        if (!result.success) {
+          throw new Error(result.error || 'Unknown error');
+        }
+
+        return result.result;
+        
+      } catch (error: any) {
+        lastError = error;
+        
+        if (error.name === 'AbortError') {
+          lastError = new Error('Request timeout');
+        } else if (error.message?.includes('ECONNREFUSED')) {
+          lastError = new Error('Unity HTTP server is not running');
+        } else if (error.message?.includes('Failed to fetch')) {
+          lastError = new Error('Failed to connect to Unity HTTP server');
+        }
+        
+        console.error(`[Unity HTTP] Error on attempt ${retry + 1}: ${lastError.message}`);
+        
+        // Don't retry on certain errors
+        if (error.message?.includes('Method not found')) {
+          throw error;
+        }
       }
-      if (error.message?.includes('ECONNREFUSED')) {
-        throw new Error('Unity HTTP server is not running');
-      }
-      throw error;
     }
+    
+    // All retries failed
+    throw lastError || new Error('Unknown error after retries');
   }
 
   /**
@@ -82,6 +117,10 @@ export class UnityHttpAdapter {
 
   async deleteScript(path: string): Promise<any> {
     return this.call('script/delete', { path });
+  }
+  
+  async applyDiff(path: string, diff: string, options?: any): Promise<any> {
+    return this.call('script/applyDiff', { path, diff, options });
   }
 
   // Shader operations

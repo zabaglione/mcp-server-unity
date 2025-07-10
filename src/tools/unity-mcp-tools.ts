@@ -9,7 +9,30 @@ export class UnityMcpTools {
   private adapter: UnityHttpAdapter;
 
   constructor() {
-    this.adapter = new UnityHttpAdapter();
+    const port = process.env.UNITY_MCP_PORT ? parseInt(process.env.UNITY_MCP_PORT) : 23457;
+    const url = `http://localhost:${port}/`;
+    console.error(`[Unity MCP] Connecting to Unity at ${url}`);
+    
+    this.adapter = new UnityHttpAdapter({ 
+      url,
+      timeout: parseInt(process.env.UNITY_MCP_TIMEOUT || '120000')
+    });
+    
+    // Check connection on startup
+    this.checkConnection();
+  }
+  
+  private async checkConnection() {
+    try {
+      const connected = await this.adapter.isConnected();
+      if (connected) {
+        console.error('[Unity MCP] Successfully connected to Unity HTTP server');
+      } else {
+        console.error('[Unity MCP] Unity HTTP server is not responding');
+      }
+    } catch (error: any) {
+      console.error(`[Unity MCP] Connection check failed: ${error.message}`);
+    }
   }
 
   /**
@@ -66,6 +89,34 @@ export class UnityMcpTools {
             }
           },
           required: ['path']
+        }
+      },
+      {
+        name: 'script_apply_diff',
+        description: 'Apply a unified diff to a C# script',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            path: {
+              type: 'string',
+              description: 'Path to the script file'
+            },
+            diff: {
+              type: 'string',
+              description: 'Unified diff content to apply'
+            },
+            options: {
+              type: 'object',
+              description: 'Optional diff application settings',
+              properties: {
+                dryRun: {
+                  type: 'boolean',
+                  description: 'Preview changes without applying (default: false)'
+                }
+              }
+            }
+          },
+          required: ['path', 'diff']
         }
       },
       
@@ -183,6 +234,19 @@ export class UnityMcpTools {
             content: [{
               type: 'text',
               text: `Script deleted successfully: ${args.path}`
+            }]
+          };
+        }
+        
+        case 'script_apply_diff': {
+          if (!args.path || !args.diff) {
+            throw new Error('path and diff are required');
+          }
+          const result = await this.adapter.applyDiff(args.path, args.diff, args.options);
+          return {
+            content: [{
+              type: 'text',
+              text: `Diff applied successfully:\nPath: ${result.path}\nLines added: ${result.linesAdded}\nLines removed: ${result.linesRemoved}`
             }]
           };
         }

@@ -64,7 +64,8 @@
       "WebFetch(domain:github.com)",
       "Bash(./scripts/build-extension.sh:*)",
       "Bash(gh release:*)",
-      "Bash(cp:*)"
+      "Bash(cp:*)",
+      "Bash(gh repo edit:*)"
     ],
     "deny": []
   }
