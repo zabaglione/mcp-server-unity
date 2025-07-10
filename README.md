@@ -180,6 +180,8 @@ See [V3_TEST_REPORT.md](V3_TEST_REPORT.md) for comprehensive testing results and
 
 ## 🛠️ Development
 
+### Setup for Development
+
 ```bash
 # Install dependencies
 npm install
@@ -193,6 +195,93 @@ npm test
 # Start in development mode
 npm run dev
 ```
+
+### Development Configuration for Claude Desktop
+
+For local development, you have several options:
+
+#### Option 1: Using npm link (Recommended)
+```bash
+# In your development directory
+cd /path/to/unity-mcp
+npm run build
+npm link
+
+# Now you can use the same configuration as production
+```
+
+Claude Desktop config:
+```json
+{
+  "mcpServers": {
+    "unity-bridge": {
+      "command": "unity-mcp-bridge",
+      "args": []
+    }
+  }
+}
+```
+
+#### Option 2: Direct Node.js Execution
+```json
+{
+  "mcpServers": {
+    "unity-bridge-dev": {
+      "command": "node",
+      "args": ["/path/to/unity-mcp/build/index.js"],
+      "env": {
+        "NODE_ENV": "development",
+        "DEBUG": "unity-mcp:*"
+      }
+    }
+  }
+}
+```
+
+#### Option 3: TypeScript Direct Execution (with tsx)
+First install tsx globally:
+```bash
+npm install -g tsx
+```
+
+Then configure:
+```json
+{
+  "mcpServers": {
+    "unity-bridge-ts": {
+      "command": "tsx",
+      "args": ["/path/to/unity-mcp/src/index.ts"],
+      "env": {
+        "NODE_ENV": "development"
+      }
+    }
+  }
+}
+```
+
+#### Debugging Configuration
+For debugging with Chrome DevTools or VS Code:
+```json
+{
+  "mcpServers": {
+    "unity-bridge-debug": {
+      "command": "node",
+      "args": [
+        "--inspect=9229",
+        "/path/to/unity-mcp/build/index.js"
+      ],
+      "env": {
+        "NODE_ENV": "development",
+        "DEBUG": "*"
+      }
+    }
+  }
+}
+```
+
+Then open `chrome://inspect` in Chrome or attach VS Code debugger to port 9229.
+
+**Note**: Remember to restart Claude Desktop after changing the configuration.
 
 ### Building Desktop Extension
 

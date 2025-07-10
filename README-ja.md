@@ -180,6 +180,8 @@ folder_rename Assets/Scripts/AI Assets/Scripts/ArtificialIntelligence
 
 ## 🛠️ 開発
 
+### 開発環境のセットアップ
+
 ```bash
 # 依存関係をインストール
 npm install
@@ -193,6 +195,93 @@ npm test
 # 開発モードで起動
 npm run dev
 ```
+
+### Claude Desktop 開発用設定
+
+ローカル開発には以下のオプションがあります：
+
+#### オプション1: npm link を使用（推奨）
+```bash
+# 開発ディレクトリで
+cd /path/to/unity-mcp
+npm run build
+npm link
+
+# これで本番環境と同じ設定が使用可能
+```
+
+Claude Desktop 設定:
+```json
+{
+  "mcpServers": {
+    "unity-bridge": {
+      "command": "unity-mcp-bridge",
+      "args": []
+    }
+  }
+}
+```
+
+#### オプション2: Node.js 直接実行
+```json
+{
+  "mcpServers": {
+    "unity-bridge-dev": {
+      "command": "node",
+      "args": ["/path/to/unity-mcp/build/index.js"],
+      "env": {
+        "NODE_ENV": "development",
+        "DEBUG": "unity-mcp:*"
+      }
+    }
+  }
+}
+```
+
+#### オプション3: TypeScript 直接実行（tsx使用）
+まず tsx をグローバルインストール:
+```bash
+npm install -g tsx
+```
+
+その後の設定:
+```json
+{
+  "mcpServers": {
+    "unity-bridge-ts": {
+      "command": "tsx",
+      "args": ["/path/to/unity-mcp/src/index.ts"],
+      "env": {
+        "NODE_ENV": "development"
+      }
+    }
+  }
+}
+```
+
+#### デバッグ設定
+Chrome DevTools や VS Code でのデバッグ:
+```json
+{
+  "mcpServers": {
+    "unity-bridge-debug": {
+      "command": "node",
+      "args": [
+        "--inspect=9229",
+        "/path/to/unity-mcp/build/index.js"
+      ],
+      "env": {
+        "NODE_ENV": "development",
+        "DEBUG": "*"
+      }
+    }
+  }
+}
+```
+
+Chrome で `chrome://inspect` を開くか、VS Code デバッガーをポート 9229 にアタッチしてください。
+
+**注意**: 設定変更後は必ず Claude Desktop を再起動してください。
 
 ### Desktop Extensionのビルド
 
