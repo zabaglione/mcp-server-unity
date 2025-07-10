@@ -13,8 +13,9 @@ Unity MCP ServerはModel Context Protocol (MCP)を通じて、AIアシスタン�
    ```
 
 2. **Unity HTTPサーバーをUnityプロジェクトに追加**
-   - `src/unity-scripts/UnityHttpServer.cs`を`Assets/Editor/UnityHttpServer.cs`にコピー
-   - Unity Editorを開くと自動的にサーバーが起動します
+   - 自動セットアップ（推奨）: `setup_unity_bridge`ツールを使用
+   - 手動セットアップ: スクリプトを`Assets/Editor/MCP/`フォルダにコピー
+   - Unity Editorを開くと自動的にサーバーが起動します（ポート23457）
 
 3. **Claude Desktopの設定**
    ```json
@@ -22,7 +23,7 @@ Unity MCP ServerはModel Context Protocol (MCP)を通じて、AIアシスタン�
      "mcpServers": {
        "unity": {
          "command": "node",
-         "args": ["path/to/unity-mcp/build/simple-index.js"]
+         "args": ["/path/to/mcp-server-unity/build/simple-index.js"]
        }
      }
    }
@@ -30,10 +31,14 @@ Unity MCP ServerはModel Context Protocol (MCP)を通じて、AIアシスタン�
 
 ## ✨ 機能
 
-- 📝 **スクリプト管理**: C#スクリプトの作成、読取、削除
-- 🎨 **シェーダー操作**: Unityシェーダーの作成と管理
+- 📝 **スクリプト管理**: C#スクリプトの作成、読取、更新、削除
+- 🔄 **差分ベースの更新**: unified diff形式によるスクリプトの部分更新
+- 🎨 **シェーダー操作**: Unityシェーダーの作成、読取、削除
+- 📁 **フォルダ操作**: フォルダの作成、リネーム、移動、削除、一覧表示
 - 📊 **プロジェクト情報**: Unityプロジェクト情報の取得
-- 🔌 **シンプルなHTTP API**: MCPとUnity間の信頼性の高い通信
+- 🚀 **自動スクリプトデプロイ**: Unity MCPブリッジスクリプトの自動インストール・更新
+- 🔌 **シンプルなHTTP API**: MCPとUnity間の信頼性の高い通信（ポート23457）
+- 📦 **大容量ファイルサポート**: 最大1GBのファイル処理
 - 🧪 **完全なテスト**: 包括的なユニットテストと統合テスト
 
 ## 🏗️ アーキテクチャ
@@ -42,7 +47,7 @@ Unity MCP ServerはModel Context Protocol (MCP)を通じて、AIアシスタン�
 ┌─────────────────┐         ┌─────────────────┐         ┌─────────────────┐
 │                 │  MCP    │                 │  HTTP   │                 │
 │  AIアシスタント  │────────▶│   MCPサーバー    │────────▶│  Unity Editor   │
-│   (Claude)      │  stdio  │   (Node.js)     │  :3001  │  (HTTPサーバー)  │
+│   (Claude)      │  stdio  │   (Node.js)     │  :23457 │  (HTTPサーバー)  │
 └─────────────────┘         └─────────────────┘         └─────────────────┘
 ```
 
@@ -50,14 +55,21 @@ Unity MCP ServerはModel Context Protocol (MCP)を通じて、AIアシスタン�
 
 | ツール | 説明 |
 |------|------|
+| `project_info` | Unityプロジェクト情報を取得（スクリプトを自動デプロイ） |
+| `project_status` | 接続状態を確認 |
+| `setup_unity_bridge` | Unity MCPスクリプトをインストール/更新 |
 | `script_create` | 新しいC#スクリプトを作成 |
 | `script_read` | スクリプトの内容を読取 |
+| `script_apply_diff` | diffでスクリプトを更新 |
 | `script_delete` | スクリプトを削除 |
 | `shader_create` | 新しいシェーダーを作成 |
 | `shader_read` | シェーダーの内容を読取 |
 | `shader_delete` | シェーダーを削除 |
-| `project_info` | Unityプロジェクト情報を取得 |
-| `project_status` | 接続状態を確認 |
+| `folder_create` | フォルダを作成 |
+| `folder_rename` | フォルダをリネーム |
+| `folder_move` | フォルダを移動 |
+| `folder_list` | フォルダ内容を一覧表示 |
+| `folder_delete` | フォルダを削除 |
 
 ## 📋 要件
 
@@ -104,9 +116,20 @@ unity-mcp/
 
 ## 🚦 Unityセットアップ
 
-1. `src/unity-scripts/UnityHttpServer.cs`をUnityプロジェクトの`Assets/Editor/`フォルダにコピー
-2. HTTPサーバーがポート3001で自動的に起動します
-3. Unityコンソールで「Unity HTTP Server started」メッセージを確認
+### 自動セットアップ（推奨）
+1. MCPサーバーをインストール・起動
+2. `setup_unity_bridge`ツールでスクリプトをインストール：
+   ```bash
+   setup_unity_bridge projectPath="/path/to/your/unity/project"
+   ```
+
+### 手動セットアップ
+1. 以下のスクリプトをUnityプロジェクトにコピー：
+   - `src/unity-scripts/UnityHttpServer.cs` → `Assets/Editor/MCP/UnityHttpServer.cs`
+   - `src/unity-scripts/UnityMCPServerWindow.cs` → `Assets/Editor/MCP/UnityMCPServerWindow.cs`
+2. HTTPサーバーがポート23457で自動的に起動します
+3. Unityコンソールで「[UnityMCP] HTTP Server started」メッセージを確認
+4. Window > Unity MCP Serverでサーバーを制御
 
 ## 📖 使用例
 
@@ -124,9 +147,51 @@ await tools.executeTool('script_read', {
   path: 'Assets/Scripts/PlayerController.cs'
 });
 
+// diffでスクリプトを更新
+await tools.executeTool('script_apply_diff', {
+  path: 'Assets/Scripts/PlayerController.cs',
+  diff: `@@ -1,3 +1,4 @@
+ using UnityEngine;
++using System.Collections;
+ 
+ public class PlayerController : MonoBehaviour { }`
+});
+
 // スクリプトを削除
 await tools.executeTool('script_delete', {
   path: 'Assets/Scripts/PlayerController.cs'
+});
+```
+
+### フォルダ操作
+```javascript
+// フォルダを作成
+await tools.executeTool('folder_create', {
+  path: 'Assets/MyNewFolder'
+});
+
+// フォルダをリネーム
+await tools.executeTool('folder_rename', {
+  oldPath: 'Assets/MyNewFolder',
+  newName: 'RenamedFolder'
+});
+
+// フォルダを移動
+await tools.executeTool('folder_move', {
+  sourcePath: 'Assets/RenamedFolder',
+  targetPath: 'Assets/Scripts/RenamedFolder'
+});
+
+// フォルダ内容を一覧表示
+await tools.executeTool('folder_list', {
+  path: 'Assets/Scripts',
+  recursive: false
+});
+
+// フォルダを削除
+await tools.executeTool('folder_delete', {
+  path: 'Assets/Scripts/RenamedFolder',
+  recursive: true
 });
 ```
 
@@ -152,11 +217,17 @@ await tools.executeTool('shader_delete', {
 
 ### プロジェクト操作
 ```javascript
-// プロジェクト情報を取得
+// プロジェクト情報を取得（必要に応じてスクリプトを自動デプロイ）
 await tools.executeTool('project_info', {});
 
 // 接続状態を確認
 await tools.executeTool('project_status', {});
+
+// Unity MCPスクリプトをインストール/更新
+await tools.executeTool('setup_unity_bridge', {
+  projectPath: '/path/to/unity/project',
+  forceUpdate: false
+});
 ```
 
 ## 🧪 テスト
@@ -182,8 +253,10 @@ npm run test:watch
 
 ### Unityサーバーが応答しない
 - Unityコンソールでエラーを確認
-- UnityHttpServer.csがEditorフォルダにあることを確認
-- ポート3001が使用されていないことを確認
+- スクリプトが`Assets/Editor/MCP/`フォルダにあることを確認
+- ポート23457が使用されていないことを確認
+- Window > Unity MCP Serverを開いてサーバーを手動で起動
+- `setup_unity_bridge`を使用してスクリプトを再インストール
 
 ### MCP接続の問題
 - Claude Desktop設定を確認
@@ -212,6 +285,7 @@ MITライセンス - 詳細は[LICENSE](LICENSE)ファイルを参照してく�
 - 追加のUnity操作（マテリアル、プレハブなど）
 - パフォーマンス向上のためのバッチ操作
 - Unityプロジェクトテンプレート
+- 競合解決を含む高度なdiffマージ
 
 ## 🙏 謝辞
 
