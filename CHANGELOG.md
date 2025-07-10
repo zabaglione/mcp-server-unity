@@ -5,6 +5,62 @@ All notable changes to Unity MCP Server will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.0] - 2025-07-10
+
+### Added
+- Folder operations support:
+  - `folder_create` - Create new folders in Unity project
+  - `folder_rename` - Rename existing folders
+  - `folder_move` - Move folders to new locations
+  - `folder_delete` - Delete folders recursively
+  - `folder_list` - List folder contents with optional recursion
+- Automatic Unity MCP bridge script deployment:
+  - `setup_unity_bridge` - Install/update Unity scripts automatically
+  - Auto-deployment on first project info request
+  - Version checking and auto-update support
+- Unity control window (Window > Unity MCP Server) for server management
+- Shader operations (simplified):
+  - `shader_create` - Create new shaders with default template
+  - `shader_read` - Read shader contents
+  - `shader_delete` - Delete shaders
+
+### Changed
+- Updated port from 3001 to 23457 for better conflict avoidance
+- Improved UTF-8 BOM handling for Unity compatibility
+- Simplified HTTP-based architecture for better reliability
+- Enhanced error messages and logging with [UnityMCP] prefix
+- Scripts now install to `Assets/Editor/MCP/` folder structure
+
+### Fixed
+- Character encoding issues with UTF-8 BOM for Unity files
+- Script deployment path handling for various Unity project structures
+- Connection stability with retry logic
+
+### Documentation
+- Updated README files with correct repository name (mcp-server-unity)
+- Added comprehensive usage examples for all operations
+- Improved setup instructions with automatic and manual options
+
+## [3.0.0] - 2025-06-08
+
+### Changed
+- Complete rewrite with simplified HTTP-based architecture
+- Removed complex service layer in favor of direct API implementation
+- Industry-standard diff processing for script updates
+- Streamlined to essential features only
+
+### Added
+- Desktop Extension support with bundled configuration
+- Large file support (up to 1GB) with streaming
+- Diff-based script update system (`script_apply_diff`)
+- Comprehensive test coverage (100%)
+
+### Removed
+- Legacy service-based architecture
+- Complex material and shader management
+- Compilation monitoring features
+- ProBuilder and package management
+
 ## [2.2.0] - 2025-06-06
 
 ### Added
