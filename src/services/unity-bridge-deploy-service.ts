@@ -1,8 +1,6 @@
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { fileURLToPath } from 'url';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
+import { EmbeddedScriptsProvider } from '../embedded-scripts.js';
 
 interface DeploymentOptions {
   projectPath: string;
@@ -27,6 +25,8 @@ export class UnityBridgeDeployService {
     debug: (msg: string) => console.error(`[Unity MCP Deploy] DEBUG: ${msg}`),
     error: (msg: string) => console.error(`[Unity MCP Deploy] ERROR: ${msg}`)
   };
+  
+  private scriptsProvider: EmbeddedScriptsProvider = new EmbeddedScriptsProvider();
   
   private readonly SCRIPTS: ScriptInfo[] = [
     {
@@ -63,38 +63,22 @@ export class UnityBridgeDeployService {
   }
 
   private async deployScript(projectPath: string, script: ScriptInfo, forceUpdate: boolean): Promise<void> {
-    // Use source directory path (not build directory)
-    const sourcePath = path.join(__dirname, '..', '..', 'src', 'unity-scripts', script.fileName);
     const targetPath = path.join(projectPath, script.targetPath);
 
     // Check if script exists and needs update
     const needsUpdate = await this.checkNeedsUpdate(targetPath, script.version, forceUpdate);
     
     if (needsUpdate) {
-      // Check if source file exists
-      try {
-        await fs.access(sourcePath);
-      } catch (error) {
-        throw new Error(`Source script not found: ${sourcePath}`);
+      // Get script from embedded provider
+      const embeddedScript = this.scriptsProvider.getScript(script.fileName);
+      if (!embeddedScript) {
+        throw new Error(`Embedded script not found: ${script.fileName}`);
       }
       
-      // Read source script as binary to preserve exact content
-      const buffer = await fs.readFile(sourcePath);
+      this.logger.debug(`Using embedded script: ${script.fileName}`);
       
-      // Check if file already has BOM
-      const hasBOM = buffer.length >= 3 && 
-                     buffer[0] === 0xEF && 
-                     buffer[1] === 0xBB && 
-                     buffer[2] === 0xBF;
-      
-      // Write with UTF-8 BOM if not already present
-      if (!hasBOM) {
-        const utf8BOM = Buffer.from('\ufeff', 'utf8');
-        const finalBuffer = Buffer.concat([utf8BOM, buffer]);
-        await fs.writeFile(targetPath, finalBuffer);
-      } else {
-        await fs.writeFile(targetPath, buffer);
-      }
+      // Write script using the embedded provider's method (handles UTF-8 BOM)
+      await this.scriptsProvider.writeScriptToFile(script.fileName, targetPath);
       
       // Generate .meta file
       await this.generateMetaFile(targetPath);

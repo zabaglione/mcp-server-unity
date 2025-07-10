@@ -1,4 +1,25 @@
-using System;
+import * as fs from 'fs/promises';
+import * as path from 'path';
+
+export interface EmbeddedScript {
+  fileName: string;
+  content: string;
+  version: string;
+}
+
+export class EmbeddedScriptsProvider {
+  private scripts: Map<string, EmbeddedScript> = new Map();
+
+  constructor() {
+    this.initializeScripts();
+  }
+
+  private initializeScripts() {
+    // UnityHttpServer.cs content
+    this.scripts.set('UnityHttpServer.cs', {
+      fileName: 'UnityHttpServer.cs',
+      version: '1.1.0',
+      content: `using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -563,10 +584,10 @@ namespace UnityMCP
             // Read current content using UTF-8 with BOM (Unity standard)
             var utf8WithBom = new UTF8Encoding(true);
             var originalContent = File.ReadAllText(fullPath, utf8WithBom);
-            var lines = originalContent.Split('\n').ToList();
+            var lines = originalContent.Split('\\n').ToList();
             
             // Parse and apply unified diff
-            var diffLines = diff.Split('\n');
+            var diffLines = diff.Split('\\n');
             var linesAdded = 0;
             var linesRemoved = 0;
             var currentLine = 0;
@@ -577,7 +598,7 @@ namespace UnityMCP
                 if (line.StartsWith("@@"))
                 {
                     // Parse hunk header: @@ -l,s +l,s @@
-                    var match = System.Text.RegularExpressions.Regex.Match(line, @"@@ -(\d+),?\d* \+(\d+),?\d* @@");
+                    var match = System.Text.RegularExpressions.Regex.Match(line, @"@@ -(\\d+),?\\d* \\+(\\d+),?\\d* @@");
                     if (match.Success)
                     {
                         currentLine = int.Parse(match.Groups[1].Value) - 1;
@@ -609,7 +630,7 @@ namespace UnityMCP
             // Write result if not dry run
             if (!dryRun)
             {
-                var updatedContent = string.Join("\n", lines);
+                var updatedContent = string.Join("\\n", lines);
                 // Write with UTF-8 with BOM (Unity standard)
                 File.WriteAllText(fullPath, updatedContent, utf8WithBom);
                 AssetDatabase.Refresh();
@@ -729,54 +750,54 @@ namespace UnityMCP
         static string GetDefaultScriptContent(string fileName)
         {
             var className = Path.GetFileNameWithoutExtension(fileName);
-            return "using UnityEngine;\n\n" +
-                   $"public class {className} : MonoBehaviour\n" +
-                   "{\n" +
-                   "    void Start()\n" +
-                   "    {\n" +
-                   "        \n" +
-                   "    }\n" +
-                   "    \n" +
-                   "    void Update()\n" +
-                   "    {\n" +
-                   "        \n" +
-                   "    }\n" +
+            return "using UnityEngine;\\n\\n" +
+                   $"public class {className} : MonoBehaviour\\n" +
+                   "{\\n" +
+                   "    void Start()\\n" +
+                   "    {\\n" +
+                   "        \\n" +
+                   "    }\\n" +
+                   "    \\n" +
+                   "    void Update()\\n" +
+                   "    {\\n" +
+                   "        \\n" +
+                   "    }\\n" +
                    "}";
         }
         
         static string GetDefaultShaderContent(string fileName)
         {
             var shaderName = Path.GetFileNameWithoutExtension(fileName);
-            return $"Shader \"Custom/{shaderName}\"\n" +
-                   "{\n" +
-                   "    Properties\n" +
-                   "    {\n" +
-                   "        _MainTex (\"Texture\", 2D) = \"white\" {}\n" +
-                   "    }\n" +
-                   "    SubShader\n" +
-                   "    {\n" +
-                   "        Tags { \"RenderType\"=\"Opaque\" }\n" +
-                   "        LOD 200\n" +
-                   "\n" +
-                   "        CGPROGRAM\n" +
-                   "        #pragma surface surf Standard fullforwardshadows\n" +
-                   "\n" +
-                   "        sampler2D _MainTex;\n" +
-                   "\n" +
-                   "        struct Input\n" +
-                   "        {\n" +
-                   "            float2 uv_MainTex;\n" +
-                   "        };\n" +
-                   "\n" +
-                   "        void surf (Input IN, inout SurfaceOutputStandard o)\n" +
-                   "        {\n" +
-                   "            fixed4 c = tex2D (_MainTex, IN.uv_MainTex);\n" +
-                   "            o.Albedo = c.rgb;\n" +
-                   "            o.Alpha = c.a;\n" +
-                   "        }\n" +
-                   "        ENDCG\n" +
-                   "    }\n" +
-                   "    FallBack \"Diffuse\"\n" +
+            return $"Shader \\"Custom/{shaderName}\\"\\n" +
+                   "{\\n" +
+                   "    Properties\\n" +
+                   "    {\\n" +
+                   "        _MainTex (\\"Texture\\", 2D) = \\"white\\" {}\\n" +
+                   "    }\\n" +
+                   "    SubShader\\n" +
+                   "    {\\n" +
+                   "        Tags { \\"RenderType\\"=\\"Opaque\\" }\\n" +
+                   "        LOD 200\\n" +
+                   "\\n" +
+                   "        CGPROGRAM\\n" +
+                   "        #pragma surface surf Standard fullforwardshadows\\n" +
+                   "\\n" +
+                   "        sampler2D _MainTex;\\n" +
+                   "\\n" +
+                   "        struct Input\\n" +
+                   "        {\\n" +
+                   "            float2 uv_MainTex;\\n" +
+                   "        };\\n" +
+                   "\\n" +
+                   "        void surf (Input IN, inout SurfaceOutputStandard o)\\n" +
+                   "        {\\n" +
+                   "            fixed4 c = tex2D (_MainTex, IN.uv_MainTex);\\n" +
+                   "            o.Albedo = c.rgb;\\n" +
+                   "            o.Alpha = c.a;\\n" +
+                   "        }\\n" +
+                   "        ENDCG\\n" +
+                   "    }\\n" +
+                   "    FallBack \\"Diffuse\\"\\n" +
                    "}";
         }
         
@@ -1110,4 +1131,213 @@ namespace UnityMCP
             response.Close();
         }
     }
+}`
+    });
+
+    // UnityMCPServerWindow.cs content
+    this.scripts.set('UnityMCPServerWindow.cs', {
+      fileName: 'UnityMCPServerWindow.cs',
+      version: '1.1.0',
+      content: `using System;
+using UnityEngine;
+using UnityEditor;
+
+namespace UnityMCP
+{
+    /// <summary>
+    /// Unity MCP Server control window
+    /// </summary>
+    public class UnityMCPServerWindow : EditorWindow
+    {
+        // Version information (should match UnityHttpServer)
+        private const string SCRIPT_VERSION = "1.1.0";
+        
+        private int serverPort = 23457;
+        private bool isServerRunning = false;
+        private string serverStatus = "Stopped";
+        private string lastError = "";
+        
+        [MenuItem("Window/Unity MCP Server")]
+        public static void ShowWindow()
+        {
+            GetWindow<UnityMCPServerWindow>("Unity MCP Server");
+        }
+        
+        void OnEnable()
+        {
+            // Load saved settings
+            serverPort = EditorPrefs.GetInt("UnityMCP.ServerPort", 23457);
+            UpdateStatus();
+        }
+        
+        void OnDisable()
+        {
+            // Save settings
+            EditorPrefs.SetInt("UnityMCP.ServerPort", serverPort);
+        }
+        
+        void OnGUI()
+        {
+            GUILayout.Label("Unity MCP Server Control", EditorStyles.boldLabel);
+            GUILayout.Label($"Version: {SCRIPT_VERSION}", EditorStyles.miniLabel);
+            
+            EditorGUILayout.Space();
+            
+            // Server Status
+            EditorGUILayout.BeginHorizontal();
+            GUILayout.Label("Status:", GUILayout.Width(60));
+            var statusColor = isServerRunning ? Color.green : Color.red;
+            var originalColor = GUI.color;
+            GUI.color = statusColor;
+            GUILayout.Label(serverStatus, EditorStyles.boldLabel);
+            GUI.color = originalColor;
+            EditorGUILayout.EndHorizontal();
+            
+            EditorGUILayout.Space();
+            
+            // Port Configuration
+            EditorGUILayout.BeginHorizontal();
+            GUILayout.Label("Port:", GUILayout.Width(60));
+            var newPort = EditorGUILayout.IntField(serverPort);
+            if (newPort != serverPort && newPort > 0 && newPort <= 65535)
+            {
+                serverPort = newPort;
+                EditorPrefs.SetInt("UnityMCP.ServerPort", serverPort);
+            }
+            EditorGUILayout.EndHorizontal();
+            
+            // Port validation
+            if (serverPort < 1024)
+            {
+                EditorGUILayout.HelpBox("Warning: Ports below 1024 may require administrator privileges.", MessageType.Warning);
+            }
+            
+            EditorGUILayout.Space();
+            
+            // Control Buttons
+            EditorGUILayout.BeginHorizontal();
+            
+            GUI.enabled = !isServerRunning;
+            if (GUILayout.Button("Start Server", GUILayout.Height(30)))
+            {
+                StartServer();
+            }
+            
+            GUI.enabled = isServerRunning;
+            if (GUILayout.Button("Stop Server", GUILayout.Height(30)))
+            {
+                StopServer();
+            }
+            
+            GUI.enabled = true;
+            EditorGUILayout.EndHorizontal();
+            
+            EditorGUILayout.Space();
+            
+            // Connection Info
+            if (isServerRunning)
+            {
+                EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+                GUILayout.Label("Connection Information", EditorStyles.boldLabel);
+                EditorGUILayout.SelectableLabel($"http://localhost:{serverPort}/");
+                EditorGUILayout.EndVertical();
+            }
+            
+            // Error Display
+            if (!string.IsNullOrEmpty(lastError))
+            {
+                EditorGUILayout.Space();
+                EditorGUILayout.HelpBox(lastError, MessageType.Error);
+                if (GUILayout.Button("Clear Error"))
+                {
+                    lastError = "";
+                }
+            }
+            
+            EditorGUILayout.Space();
+            
+            // Instructions
+            EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+            GUILayout.Label("Instructions", EditorStyles.boldLabel);
+            GUILayout.Label("1. Configure the port (default: 23457)");
+            GUILayout.Label("2. Click 'Start Server' to begin");
+            GUILayout.Label("3. Use the MCP client to connect");
+            GUILayout.Label("4. Click 'Stop Server' when done");
+            EditorGUILayout.EndVertical();
+        }
+        
+        void StartServer()
+        {
+            try
+            {
+                UnityHttpServer.Start(serverPort);
+                UpdateStatus();
+                lastError = "";
+                Debug.Log($"[UnityMCP] Server started on port {serverPort}");
+            }
+            catch (Exception e)
+            {
+                lastError = $"Failed to start server: {e.Message}";
+                Debug.LogError($"[UnityMCP] {lastError}");
+            }
+        }
+        
+        void StopServer()
+        {
+            try
+            {
+                UnityHttpServer.Shutdown();
+                UpdateStatus();
+                lastError = "";
+                Debug.Log("[UnityMCP] Server stopped");
+            }
+            catch (Exception e)
+            {
+                lastError = $"Failed to stop server: {e.Message}";
+                Debug.LogError($"[UnityMCP] {lastError}");
+            }
+        }
+        
+        void UpdateStatus()
+        {
+            isServerRunning = UnityHttpServer.IsRunning;
+            serverStatus = isServerRunning ? $"Running on port {UnityHttpServer.CurrentPort}" : "Stopped";
+            Repaint();
+        }
+        
+        void Update()
+        {
+            // Update status periodically
+            UpdateStatus();
+        }
+    }
+}`
+    });
+  }
+
+  public getScript(fileName: string): EmbeddedScript | null {
+    return this.scripts.get(fileName) || null;
+  }
+
+  public getAllScripts(): EmbeddedScript[] {
+    return Array.from(this.scripts.values());
+  }
+
+  public async writeScriptToFile(fileName: string, targetPath: string): Promise<void> {
+    const script = this.getScript(fileName);
+    if (!script) {
+      throw new Error(`Script not found: ${fileName}`);
+    }
+
+    // Ensure parent directory exists
+    await fs.mkdir(path.dirname(targetPath), { recursive: true });
+
+    // Write script content with UTF-8 BOM for Unity compatibility
+    // Use the actual BOM bytes instead of the escaped string
+    const utf8BOM = Buffer.from([0xEF, 0xBB, 0xBF]);
+    const contentBuffer = Buffer.from(script.content, 'utf8');
+    const finalBuffer = Buffer.concat([utf8BOM, contentBuffer]);
+    
+    await fs.writeFile(targetPath, finalBuffer);
+  }
 }

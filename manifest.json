@@ -9,10 +9,10 @@
   },
   "server": {
     "type": "node",
-    "entry_point": "server/build/simple-index.js",
+    "entry_point": "server/simple-index.js",
     "mcp_config": {
       "command": "node",
-      "args": ["{{server_path}}/server/build/simple-index.js"]
+      "args": ["${__dirname}/server/simple-index.js"]
     }
   },
   "tools": [

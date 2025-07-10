@@ -43,12 +43,50 @@ class UnityMcpServer {
   }
 
   async run() {
-    const transport = new StdioServerTransport();
-    await this.server.connect(transport);
-    console.error('[Unity MCP] Server running');
+    try {
+      console.error('[Unity MCP] Starting server...');
+      const transport = new StdioServerTransport();
+      
+      console.error('[Unity MCP] Connecting to transport...');
+      await this.server.connect(transport);
+      console.error('[Unity MCP] Server connected successfully');
+      
+      // Keep the process alive - this is critical!
+      process.stdin.resume();
+      
+      process.on('SIGINT', () => {
+        console.error('[Unity MCP] Received SIGINT, shutting down...');
+        process.exit(0);
+      });
+      
+      process.on('SIGTERM', () => {
+        console.error('[Unity MCP] Received SIGTERM, shutting down...');
+        process.exit(0);
+      });
+      
+      // Log that we're ready
+      console.error('[Unity MCP] Server is ready and listening');
+    } catch (error) {
+      console.error('[Unity MCP] Failed to start server:', error);
+      throw error;
+    }
   }
 }
 
 // Main entry point
 const server = new UnityMcpServer();
-server.run().catch(console.error);
+server.run().catch((error) => {
+  console.error('[Unity MCP] Fatal error:', error);
+  process.exit(1);
+});
+
+// Handle uncaught errors
+process.on('uncaughtException', (error) => {
+  console.error('[Unity MCP] Uncaught exception:', error);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[Unity MCP] Unhandled rejection at:', promise, 'reason:', reason);
+  process.exit(1);
+});
