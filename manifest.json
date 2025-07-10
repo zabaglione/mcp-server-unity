@@ -1,6 +1,6 @@
 {
-  "name": "unity-mcp-bridge",
-  "description": "Unity MCP Bridge - Enable AI assistants to interact with Unity projects",
+  "name": "unity-mcp-server",
+  "description": "Unity MCP Server - Enable AI assistants to interact with Unity projects",
   "author": "zabaglione",
   "version": "3.1.0",
   "mcp": {
