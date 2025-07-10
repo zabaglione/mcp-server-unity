@@ -226,6 +226,93 @@ export class UnityMcpTools {
           },
           required: ['projectPath']
         }
+      },
+      
+      // Folder tools
+      {
+        name: 'folder_create',
+        description: 'Create a new folder in Unity project',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            path: {
+              type: 'string',
+              description: 'Path for the new folder (e.g., Assets/MyFolder)'
+            }
+          },
+          required: ['path']
+        }
+      },
+      {
+        name: 'folder_rename',
+        description: 'Rename a folder in Unity project',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            oldPath: {
+              type: 'string',
+              description: 'Current path of the folder'
+            },
+            newName: {
+              type: 'string',
+              description: 'New name for the folder'
+            }
+          },
+          required: ['oldPath', 'newName']
+        }
+      },
+      {
+        name: 'folder_move',
+        description: 'Move a folder to a new location in Unity project',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            sourcePath: {
+              type: 'string',
+              description: 'Current path of the folder'
+            },
+            targetPath: {
+              type: 'string',
+              description: 'Target path for the folder'
+            }
+          },
+          required: ['sourcePath', 'targetPath']
+        }
+      },
+      {
+        name: 'folder_delete',
+        description: 'Delete a folder from Unity project',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            path: {
+              type: 'string',
+              description: 'Path of the folder to delete'
+            },
+            recursive: {
+              type: 'boolean',
+              description: 'Delete all contents recursively (default: true)'
+            }
+          },
+          required: ['path']
+        }
+      },
+      {
+        name: 'folder_list',
+        description: 'List contents of a folder in Unity project',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            path: {
+              type: 'string',
+              description: 'Path of the folder to list (default: Assets)'
+            },
+            recursive: {
+              type: 'boolean',
+              description: 'List all subdirectories recursively (default: false)'
+            }
+          }
+        }
       }
     ];
   }
@@ -390,6 +477,75 @@ Is Playing: ${result.isPlaying}`
           } catch (error: any) {
             throw new Error(`Failed to install scripts: ${error.message}`);
           }
+        }
+        
+        // Folder operations
+        case 'folder_create': {
+          if (!args.path) {
+            throw new Error('path is required');
+          }
+          const result = await this.adapter.createFolder(args.path);
+          return {
+            content: [{
+              type: 'text',
+              text: `Folder created successfully:\nPath: ${result.path}\nGUID: ${result.guid}`
+            }]
+          };
+        }
+        
+        case 'folder_rename': {
+          if (!args.oldPath || !args.newName) {
+            throw new Error('oldPath and newName are required');
+          }
+          const result = await this.adapter.renameFolder(args.oldPath, args.newName);
+          return {
+            content: [{
+              type: 'text',
+              text: `Folder renamed successfully:\nOld Path: ${result.oldPath}\nNew Path: ${result.newPath}\nGUID: ${result.guid}`
+            }]
+          };
+        }
+        
+        case 'folder_move': {
+          if (!args.sourcePath || !args.targetPath) {
+            throw new Error('sourcePath and targetPath are required');
+          }
+          const result = await this.adapter.moveFolder(args.sourcePath, args.targetPath);
+          return {
+            content: [{
+              type: 'text',
+              text: `Folder moved successfully:\nFrom: ${result.sourcePath}\nTo: ${result.targetPath}\nGUID: ${result.guid}`
+            }]
+          };
+        }
+        
+        case 'folder_delete': {
+          if (!args.path) {
+            throw new Error('path is required');
+          }
+          await this.adapter.deleteFolder(args.path, args.recursive);
+          return {
+            content: [{
+              type: 'text',
+              text: `Folder deleted successfully: ${args.path}`
+            }]
+          };
+        }
+        
+        case 'folder_list': {
+          const result = await this.adapter.listFolder(args.path, args.recursive);
+          const entries = result.entries.map(e => {
+            const prefix = e.type === 'folder' ? '📁' : '📄';
+            const info = e.type === 'file' ? ` (${e.extension})` : '';
+            return `${prefix} ${e.name}${info} - ${e.path}`;
+          }).join('\n');
+          
+          return {
+            content: [{
+              type: 'text',
+              text: `Contents of ${result.path}:\n\n${entries || '(empty)'}`
+            }]
+          };
         }
         
         default:

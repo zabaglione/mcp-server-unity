@@ -359,6 +359,18 @@ namespace UnityMCP
                 case "shader/read":
                     return ReadShaderOnWorkerThread(request);
                     
+                // Folder operations (can run on worker thread)
+                case "folder/create":
+                    return CreateFolderOnWorkerThread(request);
+                case "folder/rename":
+                    return RenameFolderOnWorkerThread(request);
+                case "folder/move":
+                    return MoveFolderOnWorkerThread(request);
+                case "folder/delete":
+                    return DeleteFolderOnWorkerThread(request);
+                case "folder/list":
+                    return ListFolderOnWorkerThread(request);
+                    
                 default:
                     throw new NotImplementedException($"Method not implemented for worker thread: {method}");
             }
@@ -428,6 +440,18 @@ namespace UnityMCP
                 // Project operations
                 case "project/info":
                     return GetProjectInfo();
+                
+                // Folder operations
+                case "folder/create":
+                    return CreateFolder(request);
+                case "folder/rename":
+                    return RenameFolder(request);
+                case "folder/move":
+                    return MoveFolder(request);
+                case "folder/delete":
+                    return DeleteFolder(request);
+                case "folder/list":
+                    return ListFolder(request);
                 
                 default:
                     throw new NotImplementedException($"Method not found: {method}");
@@ -725,6 +749,299 @@ namespace UnityMCP
                    "    }\n" +
                    "    FallBack \"Diffuse\"\n" +
                    "}";
+        }
+        
+        // Folder operations
+        static object CreateFolder(JObject request)
+        {
+            var path = request["path"]?.ToString();
+            if (string.IsNullOrEmpty(path))
+                throw new ArgumentException("path is required");
+            
+            if (!path.StartsWith(ASSETS_PREFIX))
+                path = Path.Combine(DEFAULT_SCRIPTS_FOLDER, path);
+            
+            var fullPath = Path.Combine(Application.dataPath, path.Substring(ASSETS_PREFIX_LENGTH));
+            Directory.CreateDirectory(fullPath);
+            
+            AssetDatabase.Refresh();
+            
+            return new
+            {
+                path = path,
+                guid = AssetDatabase.AssetPathToGUID(path)
+            };
+        }
+        
+        static object CreateFolderOnWorkerThread(JObject request)
+        {
+            var path = request["path"]?.ToString();
+            if (string.IsNullOrEmpty(path))
+                throw new ArgumentException("path is required");
+            
+            if (!path.StartsWith(ASSETS_PREFIX))
+                path = Path.Combine(DEFAULT_SCRIPTS_FOLDER, path);
+            
+            var fullPath = Path.Combine(Application.dataPath, path.Substring(ASSETS_PREFIX_LENGTH));
+            Directory.CreateDirectory(fullPath);
+            
+            return new
+            {
+                path = path,
+                guid = "" // GUID requires AssetDatabase
+            };
+        }
+        
+        static object RenameFolder(JObject request)
+        {
+            var oldPath = request["oldPath"]?.ToString();
+            var newName = request["newName"]?.ToString();
+            
+            if (string.IsNullOrEmpty(oldPath))
+                throw new ArgumentException("oldPath is required");
+            if (string.IsNullOrEmpty(newName))
+                throw new ArgumentException("newName is required");
+            
+            var error = AssetDatabase.RenameAsset(oldPath, newName);
+            if (!string.IsNullOrEmpty(error))
+                throw new InvalidOperationException(error);
+            
+            var newPath = Path.Combine(Path.GetDirectoryName(oldPath), newName);
+            return new
+            {
+                oldPath = oldPath,
+                newPath = newPath,
+                guid = AssetDatabase.AssetPathToGUID(newPath)
+            };
+        }
+        
+        static object RenameFolderOnWorkerThread(JObject request)
+        {
+            var oldPath = request["oldPath"]?.ToString();
+            var newName = request["newName"]?.ToString();
+            
+            if (string.IsNullOrEmpty(oldPath))
+                throw new ArgumentException("oldPath is required");
+            if (string.IsNullOrEmpty(newName))
+                throw new ArgumentException("newName is required");
+            
+            var oldFullPath = Path.Combine(Application.dataPath, oldPath.Substring(ASSETS_PREFIX_LENGTH));
+            var parentDir = Path.GetDirectoryName(oldFullPath);
+            var newFullPath = Path.Combine(parentDir, newName);
+            
+            if (!Directory.Exists(oldFullPath))
+                throw new DirectoryNotFoundException($"Directory not found: {oldPath}");
+            
+            Directory.Move(oldFullPath, newFullPath);
+            
+            var newPath = Path.Combine(Path.GetDirectoryName(oldPath), newName);
+            return new
+            {
+                oldPath = oldPath,
+                newPath = newPath,
+                guid = "" // GUID requires AssetDatabase
+            };
+        }
+        
+        static object MoveFolder(JObject request)
+        {
+            var sourcePath = request["sourcePath"]?.ToString();
+            var targetPath = request["targetPath"]?.ToString();
+            
+            if (string.IsNullOrEmpty(sourcePath))
+                throw new ArgumentException("sourcePath is required");
+            if (string.IsNullOrEmpty(targetPath))
+                throw new ArgumentException("targetPath is required");
+            
+            var error = AssetDatabase.MoveAsset(sourcePath, targetPath);
+            if (!string.IsNullOrEmpty(error))
+                throw new InvalidOperationException(error);
+            
+            return new
+            {
+                sourcePath = sourcePath,
+                targetPath = targetPath,
+                guid = AssetDatabase.AssetPathToGUID(targetPath)
+            };
+        }
+        
+        static object MoveFolderOnWorkerThread(JObject request)
+        {
+            var sourcePath = request["sourcePath"]?.ToString();
+            var targetPath = request["targetPath"]?.ToString();
+            
+            if (string.IsNullOrEmpty(sourcePath))
+                throw new ArgumentException("sourcePath is required");
+            if (string.IsNullOrEmpty(targetPath))
+                throw new ArgumentException("targetPath is required");
+            
+            var sourceFullPath = Path.Combine(Application.dataPath, sourcePath.Substring(ASSETS_PREFIX_LENGTH));
+            var targetFullPath = Path.Combine(Application.dataPath, targetPath.Substring(ASSETS_PREFIX_LENGTH));
+            
+            if (!Directory.Exists(sourceFullPath))
+                throw new DirectoryNotFoundException($"Directory not found: {sourcePath}");
+            
+            // Ensure target parent directory exists
+            var targetParent = Path.GetDirectoryName(targetFullPath);
+            if (!Directory.Exists(targetParent))
+                Directory.CreateDirectory(targetParent);
+            
+            Directory.Move(sourceFullPath, targetFullPath);
+            
+            return new
+            {
+                sourcePath = sourcePath,
+                targetPath = targetPath,
+                guid = "" // GUID requires AssetDatabase
+            };
+        }
+        
+        static object DeleteFolder(JObject request)
+        {
+            var path = request["path"]?.ToString();
+            var recursive = request["recursive"]?.Value<bool>() ?? true;
+            
+            if (string.IsNullOrEmpty(path))
+                throw new ArgumentException("path is required");
+            
+            var fullPath = Path.Combine(Application.dataPath, path.Substring(ASSETS_PREFIX_LENGTH));
+            if (!Directory.Exists(fullPath))
+                throw new DirectoryNotFoundException($"Directory not found: {path}");
+            
+            if (!AssetDatabase.DeleteAsset(path))
+                throw new InvalidOperationException($"Failed to delete folder: {path}");
+            
+            return new { path = path };
+        }
+        
+        static object DeleteFolderOnWorkerThread(JObject request)
+        {
+            var path = request["path"]?.ToString();
+            var recursive = request["recursive"]?.Value<bool>() ?? true;
+            
+            if (string.IsNullOrEmpty(path))
+                throw new ArgumentException("path is required");
+            
+            var fullPath = Path.Combine(Application.dataPath, path.Substring(ASSETS_PREFIX_LENGTH));
+            if (!Directory.Exists(fullPath))
+                throw new DirectoryNotFoundException($"Directory not found: {path}");
+            
+            Directory.Delete(fullPath, recursive);
+            
+            // Also delete .meta file
+            var metaPath = fullPath + ".meta";
+            if (File.Exists(metaPath))
+                File.Delete(metaPath);
+            
+            return new { path = path };
+        }
+        
+        static object ListFolder(JObject request)
+        {
+            var path = request["path"]?.ToString() ?? ASSETS_PREFIX;
+            var recursive = request["recursive"]?.Value<bool>() ?? false;
+            
+            var fullPath = Path.Combine(Application.dataPath, path.StartsWith(ASSETS_PREFIX) ? path.Substring(ASSETS_PREFIX_LENGTH) : path);
+            if (!Directory.Exists(fullPath))
+                throw new DirectoryNotFoundException($"Directory not found: {path}");
+            
+            var entries = new List<object>();
+            
+            // Get directories
+            var dirs = Directory.GetDirectories(fullPath, "*", recursive ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly);
+            foreach (var dir in dirs)
+            {
+                var relativePath = ASSETS_PREFIX + GetRelativePath(Application.dataPath, dir);
+                entries.Add(new
+                {
+                    path = relativePath,
+                    name = Path.GetFileName(dir),
+                    type = "folder",
+                    guid = AssetDatabase.AssetPathToGUID(relativePath)
+                });
+            }
+            
+            // Get files
+            var files = Directory.GetFiles(fullPath, "*", recursive ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly)
+                                 .Where(f => !f.EndsWith(".meta"));
+            foreach (var file in files)
+            {
+                var relativePath = ASSETS_PREFIX + GetRelativePath(Application.dataPath, file);
+                entries.Add(new
+                {
+                    path = relativePath,
+                    name = Path.GetFileName(file),
+                    type = "file",
+                    extension = Path.GetExtension(file),
+                    guid = AssetDatabase.AssetPathToGUID(relativePath)
+                });
+            }
+            
+            return new
+            {
+                path = path,
+                entries = entries
+            };
+        }
+        
+        static object ListFolderOnWorkerThread(JObject request)
+        {
+            var path = request["path"]?.ToString() ?? ASSETS_PREFIX;
+            var recursive = request["recursive"]?.Value<bool>() ?? false;
+            
+            var fullPath = Path.Combine(Application.dataPath, path.StartsWith(ASSETS_PREFIX) ? path.Substring(ASSETS_PREFIX_LENGTH) : path);
+            if (!Directory.Exists(fullPath))
+                throw new DirectoryNotFoundException($"Directory not found: {path}");
+            
+            var entries = new List<object>();
+            
+            // Get directories
+            var dirs = Directory.GetDirectories(fullPath, "*", recursive ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly);
+            foreach (var dir in dirs)
+            {
+                var relativePath = ASSETS_PREFIX + GetRelativePath(Application.dataPath, dir);
+                entries.Add(new
+                {
+                    path = relativePath,
+                    name = Path.GetFileName(dir),
+                    type = "folder",
+                    guid = "" // GUID requires AssetDatabase
+                });
+            }
+            
+            // Get files
+            var files = Directory.GetFiles(fullPath, "*", recursive ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly)
+                                 .Where(f => !f.EndsWith(".meta"));
+            foreach (var file in files)
+            {
+                var relativePath = ASSETS_PREFIX + GetRelativePath(Application.dataPath, file);
+                entries.Add(new
+                {
+                    path = relativePath,
+                    name = Path.GetFileName(file),
+                    type = "file",
+                    extension = Path.GetExtension(file),
+                    guid = "" // GUID requires AssetDatabase
+                });
+            }
+            
+            return new
+            {
+                path = path,
+                entries = entries
+            };
+        }
+        
+        static string GetRelativePath(string basePath, string fullPath)
+        {
+            if (!fullPath.StartsWith(basePath))
+                return fullPath;
+            
+            var relativePath = fullPath.Substring(basePath.Length);
+            if (relativePath.StartsWith(Path.DirectorySeparatorChar.ToString()))
+                relativePath = relativePath.Substring(1);
+            
+            return relativePath.Replace(Path.DirectorySeparatorChar, '/');
         }
         
         static void SendResponse(HttpListenerResponse response, int statusCode, bool success, object result, string error)

@@ -11,6 +11,14 @@ export interface UnityResponse {
   error?: string;
 }
 
+export interface FolderEntry {
+  path: string;
+  name: string;
+  type: 'file' | 'folder';
+  extension?: string;
+  guid: string;
+}
+
 /**
  * HTTP adapter for Unity MCP Server
  * Provides a clean interface to communicate with Unity HTTP server
@@ -139,5 +147,26 @@ export class UnityHttpAdapter {
   // Project operations
   async getProjectInfo(): Promise<any> {
     return this.call('project/info');
+  }
+  
+  // Folder operations
+  async createFolder(path: string): Promise<{ path: string; guid: string }> {
+    return this.call('folder/create', { path });
+  }
+  
+  async renameFolder(oldPath: string, newName: string): Promise<{ oldPath: string; newPath: string; guid: string }> {
+    return this.call('folder/rename', { oldPath, newName });
+  }
+  
+  async moveFolder(sourcePath: string, targetPath: string): Promise<{ sourcePath: string; targetPath: string; guid: string }> {
+    return this.call('folder/move', { sourcePath, targetPath });
+  }
+  
+  async deleteFolder(path: string, recursive: boolean = true): Promise<{ path: string }> {
+    return this.call('folder/delete', { path, recursive });
+  }
+  
+  async listFolder(path?: string, recursive: boolean = false): Promise<{ path: string; entries: FolderEntry[] }> {
+    return this.call('folder/list', { path, recursive });
   }
 }
