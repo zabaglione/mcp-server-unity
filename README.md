@@ -49,6 +49,7 @@ Unity 6 MCP Bridge provides seamless integration between AI assistants (like Cla
 - **Unity 6000.0 or later** (Required)
 - **Node.js 18+**
 - **Claude Desktop** or compatible MCP client
+- **Newtonsoft.Json package** in Unity (required for Unity Bridge)
 
 ### Quick Install with Desktop Extension (NEW! 🎉)
 
@@ -70,16 +71,25 @@ npm install -g unity-mcp-bridge
 
 #### 2. Install Unity Bridge in Your Project
 
-Use the built-in installer:
+First, install required Unity package:
+```
+1. Open Unity Package Manager (Window > Package Manager)
+2. Click "+" button > "Add package from git URL"
+3. Enter: com.unity.nuget.newtonsoft-json
+4. Click "Add"
+```
+
+Then use the built-in installer:
 ```bash
 # After configuring Claude Desktop, use this MCP tool:
 bridge_install --projectPath /path/to/your/unity/project
 ```
 
 Or manually:
-1. Copy the Unity scripts from `src/unity-scripts/`
-2. Place in `Assets/Editor/MCP/` in your Unity project
-3. Unity will automatically compile and start the bridge
+1. Ensure Newtonsoft.Json is installed in Unity (see above)
+2. Copy the Unity scripts from `src/unity-scripts/`
+3. Place in `Assets/Editor/MCP/` in your Unity project
+4. Unity will automatically compile and start the bridge
 
 #### 3. Configure Claude Desktop
 

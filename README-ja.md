@@ -49,6 +49,7 @@ Unity 6 MCP Bridgeは、AIアシスタント（Claudeなど）とUnity Editorの
 - **Unity 6000.0以降** （必須）
 - **Node.js 18+**
 - **Claude Desktop** または互換MCPクライアント
+- **Newtonsoft.Jsonパッケージ** Unity内（Unity Bridge用に必要）
 
 ### Desktop Extensionで簡単インストール (NEW! 🎉)
 
@@ -70,16 +71,25 @@ npm install -g unity-mcp-bridge
 
 #### 2. Unity Bridgeのプロジェクトへのインストール
 
-ビルトインインストーラーを使用：
+まず、必要なUnityパッケージをインストール：
+```
+1. Unity Package Managerを開く（Window > Package Manager）
+2. 「+」ボタンをクリック > 「Add package from git URL」を選択
+3. 以下を入力: com.unity.nuget.newtonsoft-json
+4. 「Add」をクリック
+```
+
+その後、ビルトインインストーラーを使用：
 ```bash
 # Claude Desktop設定後、このMCPツールを使用：
 bridge_install --projectPath /path/to/your/unity/project
 ```
 
 または手動インストール：
-1. `src/unity-scripts/`からUnityスクリプトをコピー
-2. Unityプロジェクトの`Assets/Editor/MCP/`に配置
-3. Unityが自動的にコンパイルしBridgeを開始
+1. Newtonsoft.JsonがUnityにインストールされていることを確認（上記参照）
+2. `src/unity-scripts/`からUnityスクリプトをコピー
+3. Unityプロジェクトの`Assets/Editor/MCP/`に配置
+4. Unityが自動的にコンパイルしBridgeを開始
 
 #### 3. Claude Desktopの設定
 
