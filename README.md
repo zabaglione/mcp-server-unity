@@ -1,336 +1,219 @@
-# Unity 6 MCP Bridge v3.0.0
+# Unity MCP Server
 
-**Direct Unity API integration for AI-powered game development**
+Unity MCP Server enables AI assistants (like Claude) to interact with Unity projects through the Model Context Protocol (MCP). This simplified implementation provides essential tools for managing Unity scripts and shaders via a lightweight HTTP-based architecture.
 
 [日本語版 README はこちら](README-ja.md) | [English](README.md)
 
-[![Unity 6](https://img.shields.io/badge/Unity-6000.0+-blue.svg)](https://unity.com/)
-[![MCP](https://img.shields.io/badge/MCP-Compatible-green.svg)](https://modelcontextprotocol.io/)
-[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Test Status](https://img.shields.io/badge/Tests-100%25-success.svg)](V3_TEST_REPORT.md)
+## 🚀 Quick Start
 
-Unity 6 MCP Bridge provides seamless integration between AI assistants (like Claude) and Unity Editor through direct Unity API calls. This is a complete rewrite for Unity 6000+, featuring industry-standard diff processing and robust error handling.
+1. **Install the MCP Server**
+   ```bash
+   npm install
+   npm run build
+   ```
 
-## 🚀 Features
+2. **Add Unity HTTP Server to your Unity project**
+   - Copy `src/unity-scripts/UnityHttpServer.cs` to `Assets/Editor/UnityHttpServer.cs`
+   - The server will automatically start when Unity Editor opens
 
-### Unity 6 Integration
-- **Direct Unity API calls** via Named Pipes/Domain Sockets
-- **Real-time synchronization** with Unity Editor
-- **Native AssetDatabase operations** (no more meta file issues!)
-- **Roslyn-powered code analysis** and IntelliSense
-- **Unity 6 template system** for code generation
+3. **Configure Claude Desktop**
+   ```json
+   {
+     "mcpServers": {
+       "unity": {
+         "command": "node",
+         "args": ["path/to/unity-mcp/build/simple-index.js"]
+       }
+     }
+   }
+   ```
 
-### Script Operations
-- **script_create** - Generate scripts from Unity 6 templates (MonoBehaviour, ScriptableObject, Editor, Custom)
-- **script_read** - Read script content with streaming support for large files
-- **script_delete** - Safe deletion with reference checking
-- **script_rename** - Rename with automatic class name updates
-- **script_update_diff** - Apply diffs with fuzzy matching and whitespace handling
-- **script_apply_patch** - Batch apply multiple file changes with rollback support
-- **script_create_diff** - Generate unified diffs between contents
-- **script_validate_diff** - Pre-validate diffs before applying
+## ✨ Features
 
-### Folder Management
-- **folder_create** - Create with automatic parent directories
-- **folder_delete** - Safe deletion with asset cleanup
-- **folder_rename** - Rename with reference updates
-- **folder_list** - List contents with Unity metadata (GUIDs, types)
+- 📝 **Script Management**: Create, read, and delete C# scripts
+- 🎨 **Shader Operations**: Create and manage Unity shaders
+- 📊 **Project Info**: Get Unity project information
+- 🔌 **Simple HTTP API**: Reliable communication between MCP and Unity
+- 🧪 **Fully Tested**: Comprehensive unit and integration tests
 
-### Advanced Diff Processing (v3.0)
-- **Industry-standard diff-match-patch** algorithm by Google
-- **Fuzzy matching** for handling minor differences
-- **BOM preservation** for Unity files
-- **Detailed error reporting** with line-by-line analysis
-- **Performance optimized** - processes 10,000 lines in <5ms
+## 🏗️ Architecture
 
-## Installation
-
-### Prerequisites
-- **Unity 6000.0 or later** (Required)
-- **Node.js 18+**
-- **Claude Desktop** or compatible MCP client
-- **Newtonsoft.Json package** in Unity (required for Unity Bridge)
-
-### Quick Install with Desktop Extension (NEW! 🎉)
-
-The easiest way to install Unity MCP Bridge is using the Desktop Extension:
-
-1. **Download**: Get `unity-mcp-bridge.dxt` from [Releases](https://github.com/zabaglione/mcp-server-unity/releases/latest)
-2. **Install**: In Claude Desktop, go to Extensions → Install from file → Select the .dxt file
-3. **Configure**: Set your Unity project path in the extension settings
-4. **Done!** Unity Bridge will auto-install in your project when you first use it
-
-**Note**: The Desktop Extension uses a bundled single-file format with all dependencies included. This ensures compatibility with Claude Desktop's extension system.
-
-### Manual Installation
-
-#### 1. Install MCP Bridge
-```bash
-npm install -g unity-mcp-bridge
+```
+┌─────────────────┐         ┌─────────────────┐         ┌─────────────────┐
+│                 │  MCP    │                 │  HTTP   │                 │
+│  AI Assistant   │────────▶│   MCP Server    │────────▶│  Unity Editor   │
+│   (Claude)      │  stdio  │   (Node.js)     │  :3001  │  (HTTP Server)  │
+└─────────────────┘         └─────────────────┘         └─────────────────┘
 ```
 
-#### 2. Install Unity Bridge in Your Project
+## 🛠️ Available Tools
 
-First, install required Unity package:
-```
-1. Open Unity Package Manager (Window > Package Manager)
-2. Click "+" button > "Add package from git URL"
-3. Enter: com.unity.nuget.newtonsoft-json
-4. Click "Add"
-```
+| Tool | Description |
+|------|-------------|
+| `script_create` | Create a new C# script |
+| `script_read` | Read script contents |
+| `script_delete` | Delete a script |
+| `shader_create` | Create a new shader |
+| `shader_read` | Read shader contents |
+| `shader_delete` | Delete a shader |
+| `project_info` | Get Unity project information |
+| `project_status` | Check connection status |
 
-Then use the built-in installer:
-```bash
-# After configuring Claude Desktop, use this MCP tool:
-bridge_install --projectPath /path/to/your/unity/project
-```
+## 📋 Requirements
 
-Or manually:
-1. Ensure Newtonsoft.Json is installed in Unity (see above)
-2. Copy the Unity scripts from `src/unity-scripts/`
-3. Place in `Assets/Editor/MCP/` in your Unity project
-4. Unity will automatically compile and start the bridge
+- Unity 2019.4 or later
+- Node.js 16 or later
+- npm
 
-#### 3. Configure Claude Desktop
-
-Add to your Claude Desktop configuration (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
-
-```json
-{
-  "mcpServers": {
-    "unity-bridge": {
-      "command": "unity-mcp-bridge",
-      "args": []
-    }
-  }
-}
-```
-
-## 📖 Usage Examples
-
-### Setting Project Path
-```bash
-# Set the Unity project to work with
-project_set_path /path/to/your/unity/project
-
-# Check connection status
-project_get_info
-```
-
-### Script Operations
-```bash
-# Create a new player controller
-script_create Player --template MonoBehaviour --folder Assets/Scripts/Player
-
-# Create with custom content
-script_create GameManager --content "using UnityEngine;\n\npublic class GameManager : MonoBehaviour\n{\n    // Game logic here\n}"
-
-# Read existing script
-script_read Assets/Scripts/Enemy.cs
-
-# Rename with class update
-script_rename Assets/Scripts/Enemy.cs EnemyAI
-```
-
-### Advanced Diff Operations
-```bash
-# Apply a diff to update code
-script_update_diff Assets/Scripts/Player.cs "--- a/Player.cs\n+++ b/Player.cs\n@@ -10,7 +10,7 @@\n-    private float speed = 5.0f;\n+    private float speed = 10.0f;"
-
-# Use fuzzy matching for inexact matches
-script_update_diff Assets/Scripts/Enemy.cs "$DIFF_CONTENT" --fuzzy 80 --ignoreWhitespace
-
-# Validate before applying
-script_validate_diff Assets/Scripts/Player.cs "$DIFF_CONTENT"
-```
-
-### Folder Operations
-```bash
-# Create nested folders
-folder_create Assets/Scripts/AI/Behaviors --recursive
-
-# List folder contents with metadata
-folder_list Assets/Scripts
-
-# Rename folder
-folder_rename Assets/Scripts/AI Assets/Scripts/ArtificialIntelligence
-```
-
-## 🔧 Technical Details
-
-### Architecture
-- **Unity Bridge Client**: WebSocket/TCP communication with Unity Editor
-- **API Layer**: Modular API design (Script, Folder, Diff APIs)
-- **MCP Server**: Standard I/O interface for Claude Desktop
-- **Error Handling**: Comprehensive error types with actionable messages
-
-### Performance
-- Large file support (streaming for >1MB files)
-- Batch operations support
-- Connection pooling and retry logic
-- Optimized diff processing (<5ms for 10k lines)
-
-### Testing
-- Unit test coverage: 100%
-- Integration tests with Unity Bridge mock
-- Performance benchmarks included
-- Japanese/UTF-8 fully supported
-
-## 📋 API Reference
-
-See [V3_TEST_REPORT.md](V3_TEST_REPORT.md) for comprehensive testing results and API examples.
-
-## ⚠️ Breaking Changes from v2.x
-
-- Complete API redesign for Unity 6
-- Requires Unity 6000.0 or later
-- New Unity Bridge architecture
-- Industry-standard diff processing
-- All v2.x service-based APIs removed
-
-## 🛠️ Development
-
-### Setup for Development
+## 🔧 Development
 
 ```bash
 # Install dependencies
 npm install
 
-# Build
+# Build the project
 npm run build
 
 # Run tests
 npm test
 
-# Start in development mode
+# Run specific test suites
+npm run test:unit        # Unit tests only
+npm run test:integration # Integration tests only
+
+# Development mode
 npm run dev
 ```
 
-### Development Configuration for Claude Desktop
+## 📁 Project Structure
 
-For local development, you have several options:
-
-#### Option 1: Using npm link (Recommended)
-```bash
-# In your development directory
-cd /path/to/unity-mcp
-npm run build
-npm link
-
-# Now you can use the same configuration as production
+```
+unity-mcp/
+├── src/
+│   ├── adapters/          # HTTP adapter for Unity communication
+│   ├── api/               # API implementations (shader, script)
+│   ├── tools/             # MCP tool definitions
+│   ├── unity-scripts/     # Unity C# scripts
+│   └── simple-index.ts    # Main entry point
+├── tests/
+│   ├── unit/             # Unit tests
+│   └── integration/      # Integration tests
+└── docs/
+    └── ARCHITECTURE.md   # Detailed architecture documentation
 ```
 
-Claude Desktop config:
-```json
-{
-  "mcpServers": {
-    "unity-bridge": {
-      "command": "unity-mcp-bridge",
-      "args": []
-    }
-  }
-}
+## 🚦 Unity Setup
+
+1. Copy `src/unity-scripts/UnityHttpServer.cs` to your Unity project's `Assets/Editor/` folder
+2. The HTTP server will start automatically on port 3001
+3. Check Unity Console for "Unity HTTP Server started" message
+
+## 📖 Usage Examples
+
+### Script Operations
+```javascript
+// Create a new script
+await tools.executeTool('script_create', {
+  fileName: 'PlayerController',
+  content: 'public class PlayerController : MonoBehaviour { }',
+  folder: 'Assets/Scripts'
+});
+
+// Read a script
+await tools.executeTool('script_read', {
+  path: 'Assets/Scripts/PlayerController.cs'
+});
+
+// Delete a script
+await tools.executeTool('script_delete', {
+  path: 'Assets/Scripts/PlayerController.cs'
+});
 ```
 
-#### Option 2: Direct Node.js Execution
-```json
-{
-  "mcpServers": {
-    "unity-bridge-dev": {
-      "command": "node",
-      "args": ["/path/to/unity-mcp/build/index.js"],
-      "env": {
-        "NODE_ENV": "development",
-        "DEBUG": "unity-mcp:*"
-      }
-    }
-  }
-}
+### Shader Operations
+```javascript
+// Create a new shader
+await tools.executeTool('shader_create', {
+  name: 'MyShader',
+  content: 'Shader "Custom/MyShader" { }',
+  folder: 'Assets/Shaders'
+});
+
+// Read a shader
+await tools.executeTool('shader_read', {
+  path: 'Assets/Shaders/MyShader.shader'
+});
+
+// Delete a shader
+await tools.executeTool('shader_delete', {
+  path: 'Assets/Shaders/MyShader.shader'
+});
 ```
 
-#### Option 3: TypeScript Direct Execution (with tsx)
-First install tsx globally:
-```bash
-npm install -g tsx
+### Project Operations
+```javascript
+// Get project info
+await tools.executeTool('project_info', {});
+
+// Check connection status
+await tools.executeTool('project_status', {});
 ```
 
-Then configure:
-```json
-{
-  "mcpServers": {
-    "unity-bridge-ts": {
-      "command": "tsx",
-      "args": ["/path/to/unity-mcp/src/index.ts"],
-      "env": {
-        "NODE_ENV": "development"
-      }
-    }
-  }
-}
-```
+## 🧪 Testing
 
-#### Debugging Configuration
-For debugging with Chrome DevTools or VS Code:
-```json
-{
-  "mcpServers": {
-    "unity-bridge-debug": {
-      "command": "node",
-      "args": [
-        "--inspect=9229",
-        "/path/to/unity-mcp/build/index.js"
-      ],
-      "env": {
-        "NODE_ENV": "development",
-        "DEBUG": "*"
-      }
-    }
-  }
-}
-```
+The project uses Vitest for testing:
 
-Then open `chrome://inspect` in Chrome or attach VS Code debugger to port 9229.
-
-**Note**: Remember to restart Claude Desktop after changing the configuration.
-
-### Building Desktop Extension
-
-To create a Desktop Extension package (.dxt):
+- **Unit Tests**: Test individual components in isolation
+- **Integration Tests**: Test the complete flow with mock Unity server
+- **Coverage**: Comprehensive test coverage for reliability
 
 ```bash
-# Build the extension package
-npm run extension:build
+# Run all tests
+npm test
 
-# This creates unity-mcp-bridge.dxt ready for distribution
+# Run with coverage
+npm run test:coverage
+
+# Run in watch mode
+npm run test:watch
 ```
 
-The extension package:
-- Uses **single-file bundled format** (CommonJS)
-- All dependencies included via esbuild
-- No subdirectories (Claude Desktop requirement)
-- Automatic shebang removal for compatibility
-- Icon and metadata included
+## 🐛 Troubleshooting
 
-For detailed Desktop Extension creation guide, see [MCP_DESKTOP_EXTENSION_GUIDE.md](docs/MCP_DESKTOP_EXTENSION_GUIDE_EN.md)
+### Unity server not responding
+- Check Unity Console for errors
+- Ensure UnityHttpServer.cs is in the Editor folder
+- Verify port 3001 is not in use
+
+### MCP connection issues
+- Verify Claude Desktop configuration
+- Check that the build directory exists
+- Review logs for error messages
+
+## 📝 License
+
+MIT License - see [LICENSE](LICENSE) file for details.
 
 ## 🤝 Contributing
 
-Contributions welcome! Please:
-1. Fork the repository
-2. Create a feature branch
-3. Run tests: `npm test`
-4. Submit a pull request
+Contributions are welcome! Please ensure:
+- All tests pass (`npm test`)
+- Code follows existing patterns
+- New features include tests
 
-## 📜 License
+## 📚 Documentation
 
-MIT License - see [LICENSE](LICENSE) for details.
+- [Architecture Overview](docs/ARCHITECTURE.md)
+- [API Reference](docs/API.md)
+
+## 🔮 Future Enhancements
+
+- WebSocket support for real-time communication
+- Additional Unity operations (materials, prefabs, etc.)
+- Batch operations for improved performance
+- Unity project templates
 
 ## 🙏 Acknowledgments
 
-- Google's [diff-match-patch](https://github.com/google/diff-match-patch) library
 - [Model Context Protocol](https://modelcontextprotocol.io/) by Anthropic
-- Unity Technologies for Unity 6
-
----
-
-**Note**: This is a complete rewrite (v3.0) with breaking changes. For v2.x documentation, see the [v2.x branch](https://github.com/zabaglione/unity-mcp/tree/v2.x).
+- Unity Technologies
