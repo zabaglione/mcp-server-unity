@@ -59,6 +59,8 @@ Unity MCP Bridgeを最も簡単にインストールする方法はDesktop Exten
 3. **設定**: 拡張機能の設定でUnityプロジェクトのパスを設定
 4. **完了！** 初回使用時にUnity Bridgeがプロジェクトに自動インストールされます
 
+**注意**: Desktop Extensionは全ての依存関係を含む単一ファイル形式を使用しています。これによりClaude Desktopの拡張機能システムとの互換性が確保されています。
+
 ### 手動インストール
 
 #### 1. MCP Bridgeのインストール
@@ -203,11 +205,14 @@ npm run extension:build
 # これにより配布可能なunity-mcp-bridge.dxtが作成されます
 ```
 
-拡張パッケージには以下が含まれます：
-- ビルド済みサーバーファイル
-- バンドルされたすべての依存関係
-- アイコンとメタデータ
-- 自動設定サポート
+拡張パッケージの特徴：
+- **単一ファイルバンドル形式**（CommonJS）
+- esbuildで全依存関係を統合
+- サブディレクトリなし（Claude Desktop要件）
+- 互換性のための自動shebang削除
+- アイコンとメタデータを含む
+
+詳細なDesktop Extension作成ガイドは[MCP_DESKTOP_EXTENSION_GUIDE.md](docs/MCP_DESKTOP_EXTENSION_GUIDE.md)を参照してください。
 
 ## 🤝 貢献
 

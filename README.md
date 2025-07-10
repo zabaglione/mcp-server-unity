@@ -59,6 +59,8 @@ The easiest way to install Unity MCP Bridge is using the Desktop Extension:
 3. **Configure**: Set your Unity project path in the extension settings
 4. **Done!** Unity Bridge will auto-install in your project when you first use it
 
+**Note**: The Desktop Extension uses a bundled single-file format with all dependencies included. This ensures compatibility with Claude Desktop's extension system.
+
 ### Manual Installation
 
 #### 1. Install MCP Bridge
@@ -203,11 +205,14 @@ npm run extension:build
 # This creates unity-mcp-bridge.dxt ready for distribution
 ```
 
-The extension includes:
-- Pre-built server files
-- All dependencies bundled
-- Icon and metadata
-- Auto-configuration support
+The extension package:
+- Uses **single-file bundled format** (CommonJS)
+- All dependencies included via esbuild
+- No subdirectories (Claude Desktop requirement)
+- Automatic shebang removal for compatibility
+- Icon and metadata included
+
+For detailed Desktop Extension creation guide, see [MCP_DESKTOP_EXTENSION_GUIDE.md](docs/MCP_DESKTOP_EXTENSION_GUIDE_EN.md)
 
 ## 🤝 Contributing
 
