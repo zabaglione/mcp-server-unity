@@ -194,7 +194,7 @@ export class UnityMcpTools {
       // Project tools
       {
         name: 'project_info',
-        description: 'Get Unity project information',
+        description: 'Get comprehensive Unity project information including render pipeline details, project path, Unity version, and platform info',
         inputSchema: {
           type: 'object',
           properties: {}
@@ -202,7 +202,7 @@ export class UnityMcpTools {
       },
       {
         name: 'project_status',
-        description: 'Check Unity server connection status',
+        description: 'Check Unity MCP server connection status (simple connectivity test only)',
         inputSchema: {
           type: 'object',
           properties: {}
@@ -431,26 +431,16 @@ Project Path: ${result.projectPath}
 Project Name: ${result.projectName || 'N/A'}
 Unity Version: ${result.unityVersion}
 Platform: ${result.platform}
-Is Playing: ${result.isPlaying}`
+Is Playing: ${result.isPlaying}
+Render Pipeline: ${result.renderPipeline || 'Unknown'}
+Render Pipeline Version: ${result.renderPipelineVersion || 'N/A'}`
             }]
           };
         }
         
         case 'project_status': {
           const connected = await this.adapter.isConnected();
-          let status = connected ? 'Unity server is connected' : 'Unity server is not connected';
-          
-          if (connected) {
-            try {
-              const info = await this.adapter.getProjectInfo();
-              status += `\nProject: ${info.projectPath}`;
-              
-              // Auto-deploy scripts if needed
-              await this.autoDeployScripts();
-            } catch (e) {
-              // Ignore error getting project info
-            }
-          }
+          const status = connected ? 'Unity server is connected and ready' : 'Unity server is not connected or not responding';
           
           return {
             content: [{
