@@ -28,7 +28,7 @@ Claudeに話しかけるだけで：
 
 3. **使ってみよう！**
    - Unityプロジェクト（2019.4以降）を開く
-   - UnityにNewtonSoft JSONパッケージをインストール：
+   - UnityにNewtonsoft JSONパッケージをインストール：
      - ウィンドウ → Package Managerを開く
      - 「+」ボタンをクリックして「Add package by name...」を選択
      - 入力：`com.unity.nuget.newtonsoft-json`
