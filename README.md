@@ -28,6 +28,11 @@ Talk to Claude to:
 
 3. **Start Using!**
    - Open any Unity project (2019.4 or newer)
+   - Install NewtonSoft JSON package in Unity:
+     - Open Window → Package Manager
+     - Click the "+" button and select "Add package by name..."
+     - Enter: `com.unity.nuget.newtonsoft-json`
+     - Click "Add"
    - Ask Claude: "Setup Unity MCP in my project at /path/to/project"
    - Claude will install everything automatically!
 
